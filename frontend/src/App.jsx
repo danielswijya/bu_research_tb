@@ -24,7 +24,7 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ mt: 2 }}>
+      <Box sx={{ mt: 0 }}>
         {tabIndex === 0 && <MapPage />}
         {tabIndex === 1 && <TicketsPage />}
       </Box>
