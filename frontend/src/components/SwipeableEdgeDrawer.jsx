@@ -10,6 +10,7 @@ import { grey } from '@mui/material/colors';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
+import { Checkbox, Button} from '@mui/material';
 
 const drawerBleeding = 55;
 
@@ -45,6 +46,7 @@ function SwipeableEdgeDrawer(props) {
   const { window } = props;
   const [open, setOpen] = React.useState(false);
   const [locations, setLocations] = useState([]);
+  const [selectedZipcodes, setSelectedZipcodes] = useState([]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -165,23 +167,49 @@ function SwipeableEdgeDrawer(props) {
 
             // When appeared, this is where the boxes are and the data loaded into! 
 
-            locations.map((loc, i) => (
-              <Box
-                key={i}
-                sx={{
-                  mb: 2,
-                  p: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  backgroundColor: '#fff',
-                }}
-              >
-                <Typography variant="body2">Rank: {loc.rank}</Typography>
-                <Typography variant="subtitle2">ZIP: {loc.zipcode}</Typography>
-                <Typography variant="body2">Priority: {loc.priority?.toFixed(2) ?? 'N/A'}</Typography>
-              </Box>
-            ))
+            locations.map((loc, i) => {
+              const isSelected = selectedZipcodes.includes(loc.zipcode);
+            
+              const toggleSelection = () => {
+                const zipcode = loc.zipcode;
+                setSelectedZipcodes((prevSelected) =>
+                  prevSelected.includes(zipcode)
+                    ? prevSelected.filter((z) => z !== zipcode)
+                    : [...prevSelected, zipcode]
+                );
+              };
+            
+              return (
+                <Box
+                  key={i}
+                  onClick={toggleSelection}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    border: isSelected ? '2px solid' : '1px solid',
+                    borderColor: isSelected ? 'primary.main' : 'divider',
+                    borderRadius: 3,
+                    backgroundColor: '#fff',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'border 0.2s ease',
+                  }}
+                >
+                  {/* Checkbox Top-Right */}
+                  <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                    <Checkbox checked={isSelected} />
+                  </Box>
+            
+                  {/* Content */}
+                  <Typography variant="body2">Rank: {loc.rank}</Typography>
+                  <Typography variant="subtitle2">ZIP: {loc.zipcode}</Typography>
+                  <Typography variant="body2">
+                    Priority: {loc.priority?.toFixed(2) ?? 'N/A'}
+                  </Typography>
+                </Box>
+              );
+            })
+            
           )}
         </StyledBox>
       </SwipeableDrawer>
