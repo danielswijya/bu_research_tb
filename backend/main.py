@@ -30,7 +30,7 @@ try:
     cursor = connection.cursor()
     
     # Example query
-    cursor.execute("SELECT zip_code, screened_count, positive_count, priority FROM testing_locations LIMIT 10;")
+    cursor.execute("SELECT zipcode, priority, rank FROM fake_recomendations LIMIT 10;")
     rows = cursor.fetchall()
 
     print("Sample Data:")

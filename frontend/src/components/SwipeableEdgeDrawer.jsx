@@ -58,11 +58,12 @@ function SwipeableEdgeDrawer(props) {
     fetchLocations();
   }, [open]);
 
+  // This fetches locations from fake_recommendations
   async function fetchLocations() {
     const { data, error } = await supabase
-      .from('testing_locations')
+      .from('fake_recomendations')
       .select('*')
-      .order('priority', { ascending: false });
+      .order('rank', { ascending: false });
 
     if (error) {
       console.error('❌ Supabase fetch error:', error);
@@ -161,6 +162,9 @@ function SwipeableEdgeDrawer(props) {
           {locations.length === 0 ? (
             <Typography sx={{ mt: 2 }}>No data available.</Typography>
           ) : (
+
+            // When appeared, this is where the boxes are and the data loaded into! 
+
             locations.map((loc, i) => (
               <Box
                 key={i}
@@ -173,12 +177,9 @@ function SwipeableEdgeDrawer(props) {
                   backgroundColor: '#fff',
                 }}
               >
-                <Typography variant="subtitle2">ZIP: {loc.zip_code}</Typography>
-                <Typography variant="body2">Screened: {loc.screened_count}</Typography>
-                <Typography variant="body2">Positive: {loc.positive_count}</Typography>
-                <Typography variant="body2">
-                  Priority: {loc.priority?.toFixed(2) ?? 'N/A'}
-                </Typography>
+                <Typography variant="body2">Rank: {loc.rank}</Typography>
+                <Typography variant="subtitle2">ZIP: {loc.zipcode}</Typography>
+                <Typography variant="body2">Priority: {loc.priority?.toFixed(2) ?? 'N/A'}</Typography>
               </Box>
             ))
           )}
