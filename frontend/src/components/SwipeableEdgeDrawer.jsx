@@ -10,7 +10,7 @@ import { grey } from '@mui/material/colors';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
-import { Checkbox, Button} from '@mui/material';
+import { Checkbox, Button, Alert } from '@mui/material';
 
 const drawerBleeding = 55;
 
@@ -42,8 +42,8 @@ const Puller = styled('div')(({ theme }) => ({
   }),
 }));
 
-function SwipeableEdgeDrawer(props) {
-  const { window } = props;
+function SwipeableEdgeDrawer({window, onConfirm}) {
+
   const [open, setOpen] = React.useState(false);
   const [locations, setLocations] = useState([]);
   const [selectedZipcodes, setSelectedZipcodes] = useState([]);
@@ -60,7 +60,6 @@ function SwipeableEdgeDrawer(props) {
     fetchLocations();
   }, [open]);
 
-  // This fetches locations from fake_recommendations
   async function fetchLocations() {
     const { data, error } = await supabase
       .from('fake_recomendations')
@@ -73,6 +72,16 @@ function SwipeableEdgeDrawer(props) {
       setLocations(data);
     }
   }
+
+  // handleConfirm
+  const handleConfirm = () => {
+    if (selectedZipcodes.length > 0) {
+      console.log('Confirmed:', selectedZipcodes);
+      if (onConfirm) {
+        onConfirm();
+      }
+    }
+  };
 
   return (
     <Root>
@@ -92,6 +101,7 @@ function SwipeableEdgeDrawer(props) {
         }}
       />
 
+      {/* Floating Bar */}
       {!open && (
         <Box
           onClick={toggleDrawer(true)}
@@ -131,6 +141,7 @@ function SwipeableEdgeDrawer(props) {
         </Box>
       )}
 
+      {/* Main Drawer */}
       <SwipeableDrawer
         container={container}
         anchor="bottom"
@@ -161,15 +172,24 @@ function SwipeableEdgeDrawer(props) {
         </StyledBox>
 
         <StyledBox sx={{ px: 2, pb: 2, height: '100%', overflow: 'auto' }}>
+          {/* Confirm Button */}
+          <Button
+            variant="contained"
+            fullWidth
+            sx={{ mt: 2, mb: 2, position: 'sticky', top: 0, zIndex: 100 }}
+            disabled={selectedZipcodes.length === 0}
+            onClick={handleConfirm}
+          >
+            Confirm Selection
+          </Button>
+
+          {/* List */}
           {locations.length === 0 ? (
             <Typography sx={{ mt: 2 }}>No data available.</Typography>
           ) : (
-
-            // When appeared, this is where the boxes are and the data loaded into! 
-
             locations.map((loc, i) => {
               const isSelected = selectedZipcodes.includes(loc.zipcode);
-            
+
               const toggleSelection = () => {
                 const zipcode = loc.zipcode;
                 setSelectedZipcodes((prevSelected) =>
@@ -178,7 +198,7 @@ function SwipeableEdgeDrawer(props) {
                     : [...prevSelected, zipcode]
                 );
               };
-            
+
               return (
                 <Box
                   key={i}
@@ -199,7 +219,7 @@ function SwipeableEdgeDrawer(props) {
                   <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                     <Checkbox checked={isSelected} />
                   </Box>
-            
+
                   {/* Content */}
                   <Typography variant="body2">Rank: {loc.rank}</Typography>
                   <Typography variant="subtitle2">ZIP: {loc.zipcode}</Typography>
@@ -209,7 +229,6 @@ function SwipeableEdgeDrawer(props) {
                 </Box>
               );
             })
-            
           )}
         </StyledBox>
       </SwipeableDrawer>

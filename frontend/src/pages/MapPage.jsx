@@ -1,11 +1,20 @@
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup } from 'react-leaflet';
 import { useEffect, useState } from 'react';
+import { Alert, Collapse } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import SwipeableEdgeDrawer from '../components/SwipeableEdgeDrawer';
 
 export default function MapPage() {
   const [zoneData, setZoneData] = useState(null);
   const [vanData, setVanData] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+
+  const handleShowAlert = () => {
+    setShowAlert(true);
+    setTimeout(() => {
+      setShowAlert(false);
+    }, 3000);
+  };
 
   useEffect(() => {
     // Load residential zones
@@ -21,6 +30,15 @@ export default function MapPage() {
 
   return (
     <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
+      {/* ✨ Alert at top if needed */}
+      <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+        <Collapse in={showAlert} timeout="auto" unmountOnExit>
+          <Alert severity="success" sx={{ width: '90vw', maxWidth: 600 }}>
+            Confirmed Zipcodes!
+          </Alert>
+        </Collapse>
+      </div>
+      
       {/* Map Layer */}
       <MapContainer
         center={[-12.05, -77.05]}
@@ -70,7 +88,7 @@ export default function MapPage() {
 
       {/* Swipeable Drawer on top */}
       <div style={{ position: 'relative', zIndex: 10 }}>
-        <SwipeableEdgeDrawer />
+        <SwipeableEdgeDrawer onConfirm={handleShowAlert} />
       </div>
     </div>
   );
