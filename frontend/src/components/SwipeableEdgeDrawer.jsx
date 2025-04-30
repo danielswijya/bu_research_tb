@@ -74,11 +74,24 @@ function SwipeableEdgeDrawer({window, onConfirm}) {
   }
 
   // handleConfirm
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (selectedZipcodes.length > 0) {
-      console.log('Confirmed:', selectedZipcodes);
-      if (onConfirm) {
-        onConfirm();
+      const inserts = selectedZipcodes.map((zipcode) => ({
+        screening_id: zipcode, // 👈 this is your FK
+        screened_count: 0,
+        positive_count: 0,
+      }));
+  
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert(inserts)
+        .select();
+  
+      if (error) {
+        console.error('❌ Error inserting tickets:', error);
+      } else {
+        console.log('✅ Tickets inserted:', data);
+        if (onConfirm) onConfirm();
       }
     }
   };
