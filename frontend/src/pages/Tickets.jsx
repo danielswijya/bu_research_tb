@@ -49,6 +49,23 @@ export default function TicketsPage() {
     }
   };
 
+  const handleDelete = async (screening_id) => {
+  const { error } = await supabase
+    .from('tickets')
+    .delete()
+    .eq('screening_id', screening_id);
+
+  if (error) {
+    console.error('❌ Delete failed:', error);
+  } else {
+    console.log(`🗑️ Deleted ticket for screening_id ${screening_id}`);
+    // Update frontend state
+    const updated = editableFields.filter(t => t.screening_id !== screening_id);
+    setEditableFields(updated);
+  }
+};
+
+
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 800, margin: 'auto', mt: 4 }}>
       <Typography variant="h6" align="center" sx={{ mt: 2 }}>
@@ -63,6 +80,7 @@ export default function TicketsPage() {
             <TableCell>Positive</TableCell>
             <TableCell>Date Created</TableCell>
             <TableCell>Save</TableCell>
+            <TableCell>Delete</TableCell>
           </TableRow>
         </TableHead>
 
@@ -89,6 +107,9 @@ export default function TicketsPage() {
               <TableCell>{new Date(ticket.date_created).toLocaleString()}</TableCell>
               <TableCell>
                 <Button size="small" onClick={() => handleSave(ticket)}>Save</Button>
+              </TableCell>
+              <TableCell>
+                <Button size='small'color='error' onClick={()=> handleDelete(ticket.screening_id)}>Delete</Button>
               </TableCell>
             </TableRow>
           ))}

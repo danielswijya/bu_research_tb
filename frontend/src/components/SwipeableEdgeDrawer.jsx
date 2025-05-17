@@ -1,70 +1,26 @@
-import * as React from 'react';
-import PropTypes from 'prop-types';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { useEffect, useState } from 'react';
-import { Global } from '@emotion/react';
-import { styled, useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import CssBaseline from '@mui/material/CssBaseline';
-import { grey } from '@mui/material/colors';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import SwipeableDrawer from '@mui/material/SwipeableDrawer';
-import { Checkbox, Button, Alert } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Checkbox,
+  Button,
+  useTheme,
+} from '@mui/material';
 
-const drawerBleeding = 55;
-
-const Root = styled('div')(({ theme }) => ({
-  height: '100%',
-  backgroundColor: grey[100],
-  ...theme.applyStyles?.('dark', {
-    backgroundColor: (theme.vars || theme).palette.background.default,
-  }),
-}));
-
-const StyledBox = styled('div')(({ theme }) => ({
-  backgroundColor: '#fff',
-  ...theme.applyStyles?.('dark', {
-    backgroundColor: grey[800],
-  }),
-}));
-
-const Puller = styled('div')(({ theme }) => ({
-  width: 30,
-  height: 6,
-  backgroundColor: grey[300],
-  borderRadius: 3,
-  position: 'absolute',
-  top: 8,
-  left: 'calc(50% - 15px)',
-  ...theme.applyStyles?.('dark', {
-    backgroundColor: grey[500],
-  }),
-}));
-
-function SwipeableEdgeDrawer({window, onConfirm}) {
-
-  const [open, setOpen] = React.useState(false);
+export default function SidebarSelector({ onConfirm }) {
   const [locations, setLocations] = useState([]);
-  const [selectedZipcodes, setSelectedZipcodes] = useState([]);
-
+  const [selectedZonaIds, setSelectedZonaIds] = useState([]);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const container = window !== undefined ? () => window().document.body : undefined;
-
-  const toggleDrawer = (newOpen) => () => {
-    setOpen(newOpen);
-  };
 
   useEffect(() => {
     fetchLocations();
-  }, [open]);
+  }, []);
 
   async function fetchLocations() {
     const { data, error } = await supabase
-      .from('fake_recomendations')
-      .select('*')
-      .order('rank', { ascending: false });
+      .from('neighborhood_stats')
+      .select('*');
 
     if (error) {
       console.error('❌ Supabase fetch error:', error);
@@ -73,184 +29,123 @@ function SwipeableEdgeDrawer({window, onConfirm}) {
     }
   }
 
-  // handleConfirm
   const handleConfirm = async () => {
-    if (selectedZipcodes.length > 0) {
-      const inserts = selectedZipcodes.map((zipcode) => ({
-        screening_id: zipcode, // 👈 this is your FK
+    const { data: siteData, error: siteError } = await supabase
+      .from('site_data')
+      .select('Zona_ID, Screening_Location_ID');
+
+    if (siteError) {
+      console.error('❌ Site fetch error:', siteError);
+      return;
+    }
+
+    const inserts = selectedZonaIds.flatMap((zonaId) => {
+      const matchingSites = siteData.filter((s) => s.zona_id === zonaId);
+      return matchingSites.map((site) => ({
+        Zona_id: zonaId,
+        Screening_Location_Id: site.screening_location_id,
         screened_count: 0,
         positive_count: 0,
       }));
-  
+    });
+
+    if (inserts.length > 0) {
       const { data, error } = await supabase
         .from('tickets')
         .insert(inserts)
         .select();
-  
+
       if (error) {
-        console.error('❌ Error inserting tickets:', error);
+        console.error('❌ Ticket insert error:', error);
       } else {
         console.log('✅ Tickets inserted:', data);
+        setSelectedZonaIds([]);
         if (onConfirm) onConfirm();
       }
     }
   };
 
+  const toggleSelection = (zonaId) => {
+    setSelectedZonaIds((prev) =>
+      prev.includes(zonaId)
+        ? prev.filter((z) => z !== zonaId)
+        : [...prev, zonaId]
+    );
+  };
+
   return (
-    <Root>
-      <CssBaseline />
-      <Global
-        styles={{
-          '.MuiDrawer-root > .MuiPaper-root': {
-            height: isMobile ? `calc(50% - ${drawerBleeding}px)` : '30%',
-            maxWidth: isMobile ? '100%' : 600,
-            margin: isMobile ? 0 : '0 auto',
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-            overflow: 'visible',
-            boxShadow: '0px -4px 12px rgba(33, 150, 243, 0.2)',
-            borderTop: '2px solid #90caf9',
-          },
-        }}
-      />
+    <Box
+    sx={{
+      position: 'fixed',
+      top: '75px',                  // Push down below navbar
+      right: 0,
+      width: 350,
+      height: '83vh', // Fill only remaining space
+      bgcolor: 'background.paper',
+      borderLeft: '1px solid #ddd',
+      borderTopLeftRadius: 14,
+      borderBottomLeftRadius: 14,
+      overflowY: 'auto',            // Allow internal scroll
+      px: 2,
+      pb: 4,                        // Bottom spacing to prevent cut-off
+      zIndex: 1000,
+      boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
+    }}
+  >
 
-      {/* Floating Bar */}
-      {!open && (
-        <Box
-          onClick={toggleDrawer(true)}
-          sx={{
-            position: 'fixed',
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: isMobile ? '100%' : 600,
-            zIndex: 1300,
-            bgcolor: 'background.paper',
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-            boxShadow: 3,
-            border: '1px solid',
-            borderColor: (theme) => theme.palette.primary.light,
-            px: 2,
-            py: 1.5,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>
-            {locations.length} results
-          </Typography>
-          <Box
-            sx={{
-              width: 30,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: (theme) =>
-                theme.palette.mode === 'dark' ? grey[900] : grey[400],
-            }}
-          />
-        </Box>
-      )}
+      <Typography variant="h6" sx={{mt: 3, mb: 2,fontWeight: 600,}}>
+        Select Zones
+      </Typography>
 
-      {/* Main Drawer */}
-      <SwipeableDrawer
-        container={container}
-        anchor="bottom"
-        open={open}
-        onClose={toggleDrawer(false)}
-        onOpen={toggleDrawer(true)}
-        swipeAreaWidth={drawerBleeding}
-        disableSwipeToOpen={false}
-        keepMounted
+      <Box sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pt: 1, pb: 2 }}>
+      <Button
+        fullWidth
+        variant="contained"
+        disabled={selectedZonaIds.length === 0}
+        onClick={handleConfirm}
       >
-        <StyledBox
-          sx={{
-            position: 'absolute',
-            top: -drawerBleeding,
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            visibility: 'visible',
-            right: 0,
-            left: 0,
-            cursor: 'pointer',
-          }}
-          onClick={toggleDrawer(true)}
-        >
-          {isMobile && <Puller />}
-          <Typography sx={{ p: 2, color: 'text.secondary' }}>
-            {locations.length} results
-          </Typography>
-        </StyledBox>
+        Confirm Selection
+      </Button>
+    </Box>
 
-        <StyledBox sx={{ px: 2, pb: 2, height: '100%', overflow: 'auto' }}>
-          {/* Confirm Button */}
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mt: 2, mb: 2, position: 'sticky', top: 0, zIndex: 100 }}
-            disabled={selectedZipcodes.length === 0}
-            onClick={handleConfirm}
-          >
-            Confirm Selection
-          </Button>
 
-          {/* List */}
-          {locations.length === 0 ? (
-            <Typography sx={{ mt: 2 }}>No data available.</Typography>
-          ) : (
-            locations.map((loc, i) => {
-              const isSelected = selectedZipcodes.includes(loc.zipcode);
+      {locations.map((loc) => {
+  const zonaId = loc.Zona_ID;
+  const isSelected = selectedZonaIds.includes(zonaId);
 
-              const toggleSelection = () => {
-                const zipcode = loc.zipcode;
-                setSelectedZipcodes((prevSelected) =>
-                  prevSelected.includes(zipcode)
-                    ? prevSelected.filter((z) => z !== zipcode)
-                    : [...prevSelected, zipcode]
-                );
-              };
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    toggleSelection(zonaId);
+  };
 
-              return (
-                <Box
-                  key={i}
-                  onClick={toggleSelection}
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    border: isSelected ? '2px solid' : '1px solid',
-                    borderColor: isSelected ? 'primary.main' : 'divider',
-                    borderRadius: 3,
-                    backgroundColor: '#fff',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'border 0.2s ease',
-                  }}
-                >
-                  {/* Checkbox Top-Right */}
-                  <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
-                    <Checkbox checked={isSelected} />
-                  </Box>
-
-                  {/* Content */}
-                  <Typography variant="body2">Rank: {loc.rank}</Typography>
-                  <Typography variant="subtitle2">ZIP: {loc.zipcode}</Typography>
-                  <Typography variant="body2">
-                    Priority: {loc.priority?.toFixed(2) ?? 'N/A'}
-                  </Typography>
-                </Box>
-              );
-            })
-          )}
-        </StyledBox>
-      </SwipeableDrawer>
-    </Root>
+  return (
+    <Box
+      key={zonaId}
+      sx={{
+        border: isSelected ? '2px solid' : '1px solid',
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        borderRadius: 2,
+        p: 2,
+        mb: 1,
+        cursor: 'pointer',
+        position: 'relative',
+      }}
+      onClick={() => toggleSelection(zonaId)} // click card
+    >
+      {/* ✅ Independent Checkbox */}
+      <Checkbox
+        checked={isSelected}
+        onChange={handleCheckboxClick}
+        sx={{ position: 'absolute', top: 8, right: 8 }}
+      />
+            <Typography variant="body2">Rank: {loc.Rank}</Typography>
+            <Typography variant="subtitle2">Zona ID: {loc.Zona_ID}</Typography>
+            <Typography variant="body2">
+              Population: {loc.total_screened_median ?? 'N/A'}
+            </Typography>
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
-
-SwipeableEdgeDrawer.propTypes = {
-  window: PropTypes.func,
-};
-
-export default SwipeableEdgeDrawer;
