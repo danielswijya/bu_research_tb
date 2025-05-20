@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import {Alert, Collapse, Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button} from '@mui/material';
+import {Alert,Collapse,Box,Typography,Table,TableBody,TableCell,TableContainer,TableHead,TableRow,Paper,Button,} from '@mui/material';
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState([]);
@@ -15,7 +15,7 @@ export default function TicketsPage() {
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
-      .order('date_created', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('❌ Error fetching tickets:', error);
@@ -38,33 +38,32 @@ export default function TicketsPage() {
         screened_count: ticket.screened_count,
         positive_count: ticket.positive_count,
       })
-      .eq('screening_id', ticket.screening_id);
+      .eq('Screening_Location_ID', ticket.Screening_Location_ID);
 
     if (error) {
       console.error('❌ Update failed:', error);
     } else {
       console.log('✅ Updated ticket:', ticket);
       setShowAlert(true);
-      setTimeout(() => setShowAlert(false), 5000)
+      setTimeout(() => setShowAlert(false), 5000);
     }
   };
 
-  const handleDelete = async (screening_id) => {
-  const { error } = await supabase
-    .from('tickets')
-    .delete()
-    .eq('screening_id', screening_id);
+  const handleDelete = async (screeningId) => {
+    const { error } = await supabase
+      .from('tickets')
+      .delete()
+      .eq('Screening_Location_ID', screeningId);
 
-  if (error) {
-    console.error('❌ Delete failed:', error);
-  } else {
-    console.log(`🗑️ Deleted ticket for screening_id ${screening_id}`);
-    // Update frontend state
-    const updated = editableFields.filter(t => t.screening_id !== screening_id);
-    setEditableFields(updated);
-  }
-};
-
+    if (error) {
+      console.error('❌ Delete failed:', error);
+    } else {
+      console.log(`🗑️ Deleted ticket for Screening_Location_ID ${screeningId}`);
+      setEditableFields((prev) =>
+        prev.filter((t) => t.Screening_Location_ID !== screeningId)
+      );
+    }
+  };
 
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 800, margin: 'auto', mt: 4 }}>
@@ -87,29 +86,45 @@ export default function TicketsPage() {
         <TableBody>
           {editableFields.map((ticket, index) => (
             <TableRow key={index}>
-              <TableCell>{ticket.screening_id}</TableCell>
+              <TableCell>{ticket.Screening_Location_ID}</TableCell>
               <TableCell>
                 <input
                   type="number"
-                  value={ticket.screened_count}
-                  onChange={(e) => handleChange(index, 'screened_count', parseInt(e.target.value))}
+                  value={ticket.screened_count ?? ''}
+                  onChange={(e) =>
+                    handleChange(index, 'screened_count', e.target.value === '' ? null : parseInt(e.target.value))
+                  }
                   style={{ width: '80px' }}
                 />
               </TableCell>
               <TableCell>
                 <input
                   type="number"
-                  value={ticket.positive_count}
-                  onChange={(e) => handleChange(index, 'positive_count', parseInt(e.target.value))}
+                  value={ticket.positive_count ?? ''}
+                  onChange={(e) =>
+                    handleChange(index, 'positive_count', e.target.value === '' ? null : parseInt(e.target.value))
+                  }
                   style={{ width: '80px' }}
                 />
               </TableCell>
-              <TableCell>{new Date(ticket.date_created).toLocaleString()}</TableCell>
               <TableCell>
-                <Button size="small" onClick={() => handleSave(ticket)}>Save</Button>
+                {ticket.created_at
+                  ? new Date(ticket.created_at).toLocaleString()
+                  : 'N/A'}
               </TableCell>
               <TableCell>
-                <Button size='small'color='error' onClick={()=> handleDelete(ticket.screening_id)}>Delete</Button>
+                <Button size="small" onClick={() => handleSave(ticket)}>
+                  Save
+                </Button>
+              </TableCell>
+              <TableCell>
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => handleDelete(ticket.Screening_Location_ID)}
+                >
+                  Delete
+                </Button>
               </TableCell>
             </TableRow>
           ))}
@@ -117,18 +132,20 @@ export default function TicketsPage() {
       </Table>
 
       {showAlert && (
-        <div style={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          zIndex: 9999
-        }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            zIndex: 9999,
+          }}
+        >
           <Collapse in={showAlert}>
             <Alert severity="success" sx={{ minWidth: 250 }}>
               Ticket saved successfully!
             </Alert>
           </Collapse>
-        </div>
+        </Box>
       )}
     </TableContainer>
   );

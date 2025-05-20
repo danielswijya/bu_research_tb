@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 
 import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import DistrictFilter from '../components/DistrictFilter';
+import L from 'leaflet';
 
 export default function MapPage() {
   const [zoneData, setZoneData] = useState(null);
@@ -14,6 +15,26 @@ export default function MapPage() {
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [neighborhoodStats, setNeighborhoodStats] = useState([]);
   const [siteData, setSiteData] = useState([]);
+
+  // Define a simple icon generator
+const createIcon = (color) =>
+  new L.Icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+// Customize by Site_Type
+const siteTypeIcons = {
+  'Large Market': createIcon('blue'),
+  'Clinic': createIcon('green'),
+  'School': createIcon('orange'),
+  'Other': createIcon('red'),
+};
+
 
   const handleShowAlert = () => {
     setShowAlert(true);
@@ -25,9 +46,10 @@ export default function MapPage() {
       .then(res => res.json())
       .then(setZoneData);
 
-    fetch('/data/van_locations.geojson')
-      .then(res => res.json())
-      .then(setVanData);
+      // Fetches the Van locations
+    // fetch('/data/van_locations.geojson')
+    //   .then(res => res.json())
+    //   .then(setVanData);
 
     const fetchData = async () => {
       const { data: neighborhoods } = await supabase
@@ -36,10 +58,35 @@ export default function MapPage() {
 
       const { data: sites } = await supabase
         .from('site_data')
-        .select('lon, lat, Zona_ID');
+        .select('Zona_ID, Screening_Location_ID, lat, lon, Site_Type, total_screened, total_diagnosed');
+      
+      // Aggregate the Location Data from Multiple Dates into one 
+
+      const siteMap = new Map();
+
+      sites.forEach((site) => {
+      const key = site.Screening_Location_ID;
+
+      if (!siteMap.has(key)) {
+        // Make it 0 if there is no Data
+        siteMap.set(key, {
+          ...site,
+          total_screened: site.total_screened || 0,
+          total_diagnosed: site.total_diagnosed || 0,
+        });
+      // Add it if there is Data exists
+      } else {
+        const existing = siteMap.get(key);
+        siteMap.set(key, {
+          ...existing,
+          total_screened: existing.total_screened + (site.total_screened || 0),
+          total_diagnosed: existing.total_diagnosed + (site.total_diagnosed || 0),
+        });
+      }
+    });
 
       setNeighborhoodStats(neighborhoods || []);
-      setSiteData(sites || []);
+      setSiteData(Array.from(siteMap.values()));
     };
 
     fetchData();
@@ -96,22 +143,27 @@ export default function MapPage() {
         />
       )}
 
-      {vanData &&
-        vanData.features.map((feature, index) => {
-          const [lng, lat] = feature.geometry.coordinates;
-          const label = feature.properties?.location || `Van #${index + 1}`;
+      {siteData.map((site, index) => {
+      const position = [site.lat, site.lon];
+      const icon = siteTypeIcons[site.Site_Type] || siteTypeIcons['Other'];
 
-          return (
-            <Marker key={index} position={[lat, lng]}>
-              <Popup>{label}</Popup>
-            </Marker>
-          );
-        })}
+      return (
+        <Marker key={index} position={position} icon={icon}>
+          <Popup>
+            <strong>Zone ID:</strong> {site.Zona_ID}<br />
+            <strong>Screening ID:</strong> {site.Screening_Location_ID}<br />
+            <strong>Type:</strong> {site.Site_Type}<br />
+            <strong>Total Screened:</strong> {site.total_screened}<br />
+            <strong>Total Diagnosed:</strong> {site.total_diagnosed}
+          </Popup>
+        </Marker>
+      );
+      })}
     </MapContainer>
 
     {/* Sidebar stays positioned relative (over map) */}
     <div style={{ position: 'relative', zIndex: 10 }}>
-      <SidebarSelector onConfirm={handleShowAlert} />
+      <SidebarSelector onConfirm={handleShowAlert} siteData={siteData} />
     </div>
   </div>
 );
