@@ -14,7 +14,6 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
     filters.selectedZonaIds.length === 0 || filters.selectedZonaIds.includes(entry.zonaId)
   );
 
-
   useEffect(() => {
     fetchLocations();
     fetchZoneNames();
@@ -44,13 +43,24 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
   useEffect(() => {
     if (!locations.length || !siteData.length || zoneNames.size === 0) return;
 
+    const tokens = filters.searchQuery
+      .toLowerCase()
+      .split(';')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const hasSearch = tokens.length > 0;
+
     const filtered = locations
       .filter(loc => siteZonaIds.has(loc.Zona_ID))
       .filter(loc => {
-        const zonaId = Math.floor(loc.Zona_ID);
-        const zoneName = zoneNames.get(zonaId) || '';
-        const query = filters.searchQuery.trim().toLowerCase();
-        return zonaId.toString().startsWith(query)|| zoneName.toLowerCase().includes(query);
+        if (!hasSearch) return true;
+        const zonaId = Math.floor(loc.Zona_ID).toString();
+        const zoneName = (zoneNames.get(Number(zonaId)) || '').toLowerCase();
+        return (
+          tokens.some(token => zonaId.startsWith(token)) ||
+          tokens.some(token => zoneName.includes(token))
+        );
       })
       .flatMap(loc => {
         const matchingSites = siteData.filter(site => site.Zona_ID === loc.Zona_ID);

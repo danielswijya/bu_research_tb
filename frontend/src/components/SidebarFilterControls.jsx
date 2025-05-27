@@ -8,7 +8,7 @@ return (
     </AccordionSummary>
     <AccordionDetails>
         {/* 1. Multi-select Zona ID */}
-        <Autocomplete
+        {/* <Autocomplete
             multiple
             options={availableZonaIds}
             getOptionLabel={(option) => option.toString()}
@@ -19,7 +19,7 @@ return (
             renderInput={(params) => (
                 <TextField {...params} label="Select Zona IDs" placeholder="Start typing..." />
             )}
-        />
+        /> */}
 
 
         {/* 2. Switches for Rankings */}
@@ -50,7 +50,7 @@ return (
         {/* 3. Search input field */}
         <TextField
             fullWidth
-            label= "Search Zona Name or ID"
+            label= "Search Name or ID with(;) "
             value={filters.searchQuery}
             onChange={(e) => setFilters({...filters, searchQuery:e.target.value})}
             variant='outlined'
