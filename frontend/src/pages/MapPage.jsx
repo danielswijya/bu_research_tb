@@ -1,5 +1,5 @@
-import { MapContainer, TileLayer, GeoJSON, Marker, Popup } from 'react-leaflet';
-import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useState, useRef } from 'react';
 import { Alert, Collapse } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
@@ -7,9 +7,6 @@ import { supabase } from '../../lib/supabaseClient';
 import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import DistrictFilter from '../components/DistrictFilter';
 import L from 'leaflet';
-
-// AutoZoom Feature when Selected
-import { useMap } from 'react-leaflet';
 
 function AutoZoom({ sites }) {
   const map = useMap();
@@ -31,11 +28,9 @@ export default function MapPage() {
   const [siteData, setSiteData] = useState([]);
   const [filteredSites, setFilteredSites] = useState([]);
   const [selectedScreeningIds, setSelectedScreeningIds] = useState([]);
+  const [hoveredScreeningId, setHoveredScreeningId] = useState(null);
 
-  const handleShowAlert = () => {
-    setShowAlert(true);
-    setTimeout(() => setShowAlert(false), 3000);
-  };
+  const markerRefs = useRef({});
 
   useEffect(() => {
     fetch('/data/residential_zones.geojson')
@@ -77,6 +72,26 @@ export default function MapPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+  const marker = markerRefs.current[hoveredScreeningId];
+  if (marker) {
+    marker.openPopup();
+  }
+
+  // Optional: close all other popups
+  Object.entries(markerRefs.current).forEach(([id, ref]) => {
+    if (id !== String(hoveredScreeningId)) {
+      ref?.closePopup();
+    }
+  });
+}, [hoveredScreeningId, markerRefs.current]);
+
+
+  const handleShowAlert = () => {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
+  };
+
   return (
     <div style={{ height: '100vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
@@ -107,9 +122,9 @@ export default function MapPage() {
           />
         )}
 
-        {filteredSites.map((site) => {
+        {(filteredSites.length > 0 ? filteredSites : siteData).map((site) => {
           const position = [site.lat, site.lon];
-          const isSelected = site.Screening_Location_ID && selectedScreeningIds.includes(site.Screening_Location_ID);
+          const isSelected = selectedScreeningIds.includes(site.Screening_Location_ID);
 
           const baseColor =
             site.Site_Type === 'Large Market' ? 'blue' :
@@ -129,7 +144,11 @@ export default function MapPage() {
           });
 
           return (
-            <Marker key={site.Screening_Location_ID} position={position} icon={icon}>
+            <Marker key={site.Screening_Location_ID} position={position} icon={icon}
+              ref={(ref) => {
+                if (ref) markerRefs.current[site.Screening_Location_ID] = ref;
+              }}
+            >
               <Popup>
                 <strong>ID:</strong> {site.screeningId ?? 'N/A'} <br />
               </Popup>
@@ -137,7 +156,7 @@ export default function MapPage() {
           );
         })}
 
-        <AutoZoom sites={filteredSites} />
+        <AutoZoom sites={filteredSites.length > 0 ? filteredSites : siteData} />
       </MapContainer>
 
       <div style={{ position: 'relative', zIndex: 10 }}>
@@ -147,6 +166,7 @@ export default function MapPage() {
           onFilter={setFilteredSites}
           selectedScreeningIds={selectedScreeningIds}
           setSelectedScreeningIds={setSelectedScreeningIds}
+          setHoveredScreeningId={setHoveredScreeningId}
         />
       </div>
     </div>

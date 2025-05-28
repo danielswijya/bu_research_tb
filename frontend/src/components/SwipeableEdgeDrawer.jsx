@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Box, Typography, Checkbox, Button, useTheme } from '@mui/material';
 import SidebarFilterControls from './SidebarFilterControls';
 
-export default function SidebarSelector({ onConfirm, siteData, onFilter, selectedScreeningIds, setSelectedScreeningIds }) {
+export default function SidebarSelector({ onConfirm, siteData, onFilter, selectedScreeningIds, setSelectedScreeningIds, setHoveredScreeningId }) {
   const [locations, setLocations] = useState([]);
   const [zoneNames, setZoneNames] = useState(new Map());
   const [flattenedEntries, setFlattenedEntries] = useState([]);
@@ -136,6 +136,8 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
             key={`${entry.screeningId}-${entry.zonaId}-${index}`}
             sx={{ border: isSelected ? '2px solid' : '1px solid', borderColor: isSelected ? 'primary.main' : 'divider', borderRadius: 2, p: 2, mb: 1, cursor: 'pointer', position: 'relative' }}
             onClick={() => toggleSelection(entry.screeningId)}
+            onMouseEnter = {() => setHoveredScreeningId(entry.screeningId)}
+            onMouseLeave = {() => setHoveredScreeningId(null)}
           >
             <Checkbox
               checked={isSelected}
