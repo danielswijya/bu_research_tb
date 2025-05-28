@@ -12,14 +12,15 @@ export default function App() {
 
   return (
     <>
-      <AppBar position="static" color="default" elevation={1}>
+      <AppBar position="static" color='default' elevation={1}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            TB Tracker System - BU Public Health
+          <Box component= "img" src='/images/bu-sph.png' alt='BU School of Public Health' sx={{height: 48, width: 'auto', marginRight:2, borderRadius : 1,}} />
+          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500 }}>
+            x TB Tracker System
           </Typography>
           <Tabs value={tabIndex} onChange={handleChange} textColor="primary" indicatorColor="primary">
             <Tab label="Map" />
-            <Tab label="Tickets" />
+            <Tab label="Confirmed Locations" />
           </Tabs>
         </Toolbar>
       </AppBar>

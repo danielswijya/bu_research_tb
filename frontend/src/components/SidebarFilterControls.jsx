@@ -2,7 +2,8 @@ import { Accordion, AccordionSummary, AccordionDetails, Switch, Select, MenuItem
 
 export default function SidebarFilterControls({ filters, setFilters, availableZonaIds }) {
 return (
-    <Accordion defaultExpanded>
+    <Accordion sx={{backgroundColor: '#F3F6FB', color:'#333', border: '2px solid #9854CB', borderRadius: 2,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',marginBottom: 2, marginTop:5,}} defaultExpanded>
     <AccordionSummary>
         <Typography>Filter & Search</Typography>
     </AccordionSummary>

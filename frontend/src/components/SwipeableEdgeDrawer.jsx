@@ -120,6 +120,7 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
 
       <Box sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pt: 1, pb: 2 }}>
         <Button
+        sx={{backgroundColor: "#9854CB", color: '#fff'}}
           fullWidth
           variant="contained"
           disabled={selectedScreeningIds.length === 0}
@@ -134,7 +135,7 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
         return (
           <Box
             key={`${entry.screeningId}-${entry.zonaId}-${index}`}
-            sx={{ border: isSelected ? '2px solid' : '1px solid', borderColor: isSelected ? 'primary.main' : 'divider', borderRadius: 2, p: 2, mb: 1, cursor: 'pointer', position: 'relative' }}
+            sx={{ backgroundColor: '#F3F6FB', border: isSelected ? '2px solid' : '1px solid', borderColor: isSelected ? 'primary.main' : 'divider', borderRadius: 2, p: 2, mb: 1, cursor: 'pointer', position: 'relative' }}
             onClick={() => toggleSelection(entry.screeningId)}
             onMouseEnter = {() => setHoveredScreeningId(entry.screeningId)}
             onMouseLeave = {() => setHoveredScreeningId(null)}
