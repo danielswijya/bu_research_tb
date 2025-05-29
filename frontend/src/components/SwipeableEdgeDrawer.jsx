@@ -120,7 +120,7 @@ export default function SidebarSelector({ onConfirm, siteData, onFilter, selecte
 
       <Box sx={{ position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pt: 1, pb: 2 }}>
         <Button
-        sx={{backgroundColor: "#9854CB", color: '#fff'}}
+        sx={{backgroundColor: "#9854CB", color: '#fff', borderRadius:10}}
           fullWidth
           variant="contained"
           disabled={selectedScreeningIds.length === 0}

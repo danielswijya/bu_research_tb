@@ -38,7 +38,7 @@ export default function TicketsPage() {
         screened_count: ticket.screened_count,
         positive_count: ticket.positive_count,
       })
-      .eq('Screening_Location_ID', ticket.Screening_Location_ID);
+      .eq('id', ticket.id);
 
     if (error) {
       console.error('❌ Update failed:', error);
@@ -49,18 +49,18 @@ export default function TicketsPage() {
     }
   };
 
-  const handleDelete = async (screeningId) => {
+  const handleDelete = async (id) => {
     const { error } = await supabase
       .from('tickets')
       .delete()
-      .eq('Screening_Location_ID', screeningId);
+      .eq('id', id);
 
     if (error) {
       console.error('❌ Delete failed:', error);
     } else {
-      console.log(`🗑️ Deleted ticket for Screening_Location_ID ${screeningId}`);
+      console.log(`🗑️ Deleted ticket for Screening_Location_ID ${id}`);
       setEditableFields((prev) =>
-        prev.filter((t) => t.Screening_Location_ID !== screeningId)
+        prev.filter((t) => t.id !== id)
       );
     }
   };
@@ -121,7 +121,7 @@ export default function TicketsPage() {
                 <Button
                   size="small"
                   color="error"
-                  onClick={() => handleDelete(ticket.Screening_Location_ID)}
+                  onClick={() => handleDelete(ticket.id)}
                 >
                   Delete
                 </Button>
