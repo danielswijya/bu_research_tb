@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import {Alert,Collapse,Box,Typography,Table,TableBody,TableCell,TableContainer,TableHead,TableRow,Paper,Button,} from '@mui/material';
+import {Alert,Collapse,Box,Typography,Table,TableBody,TableCell,TableContainer,TableHead,TableRow,Paper,Button} from '@mui/material';
+import ExportCSVButton from '../components/ExportFunction';
+
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState([]);
@@ -70,6 +72,11 @@ export default function TicketsPage() {
       <Typography variant="h6" align="center" sx={{ mt: 2 }}>
         Submitted Tickets
       </Typography>
+      
+      {/* Download .Csv File here */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0, mr:{xs: 2, sm: 3}}}>
+        <ExportCSVButton />
+      </Box>
 
       <Table>
         <TableHead>

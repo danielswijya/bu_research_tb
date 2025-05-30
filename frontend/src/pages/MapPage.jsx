@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 
 import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import DistrictFilter from '../components/DistrictFilter';
+import MapLegend from '../components/MapLegend';
 import L from 'leaflet';
 
 function AutoZoom({ sites }) {
@@ -28,10 +29,12 @@ export default function MapPage() {
   const [siteData, setSiteData] = useState([]);
   const [filteredSites, setFilteredSites] = useState([]);
   const [selectedScreeningIds, setSelectedScreeningIds] = useState([]);
-  const [hoveredScreeningId, setHoveredScreeningId] = useState(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState(null);
+  const [highlightedMarkerKey, setHighlightedMarkerKey] = useState(null);
 
   const markerRefs = useRef({});
 
+  // 🔁 Fetch data and aggregate by Screening_Location_ID
   useEffect(() => {
     fetch('/data/residential_zones.geojson')
       .then(res => res.json())
@@ -47,20 +50,22 @@ export default function MapPage() {
         .select('*');
 
       const siteMap = new Map();
+
       site_data.forEach((site) => {
         const key = site.Screening_Location_ID;
         if (!siteMap.has(key)) {
           siteMap.set(key, {
             ...site,
+            markerKey: key, // ✅ use Screening_Location_ID directly
             total_screened: site.total_screened || 0,
             total_diagnosed: site.total_diagnosed || 0,
           });
         } else {
-          const existing = siteMap.get(key);
+          const prev = siteMap.get(key);
           siteMap.set(key, {
-            ...existing,
-            total_screened: existing.total_screened + (site.total_screened || 0),
-            total_diagnosed: existing.total_diagnosed + (site.total_diagnosed || 0),
+            ...prev,
+            total_screened: prev.total_screened + (site.total_screened || 0),
+            total_diagnosed: prev.total_diagnosed + (site.total_diagnosed || 0),
           });
         }
       });
@@ -72,25 +77,19 @@ export default function MapPage() {
     fetchData();
   }, []);
 
+  // 🔁 Open popup when sidebar card is clicked
   useEffect(() => {
-  const marker = markerRefs.current[hoveredScreeningId];
-  if (marker) {
-    marker.openPopup();
-  }
-
-  // Optional: close all other popups
-  Object.entries(markerRefs.current).forEach(([id, ref]) => {
-    if (id !== String(hoveredScreeningId)) {
-      ref?.closePopup();
+    if (highlightedMarkerKey && markerRefs.current[highlightedMarkerKey]) {
+      markerRefs.current[highlightedMarkerKey].openPopup();
     }
-  });
-}, [hoveredScreeningId, markerRefs.current]);
-
+  }, [highlightedMarkerKey]);
 
   const handleShowAlert = () => {
     setShowAlert(true);
     setTimeout(() => setShowAlert(false), 3000);
   };
+
+  const displayedSites = filteredSites.length > 0 ? filteredSites : siteData;
 
   return (
     <div style={{ height: '100vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -109,6 +108,7 @@ export default function MapPage() {
         zoom={11}
         style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '100%', height: '100%', zIndex: 0 }}
       >
+        <MapLegend />
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {zoneData && (
@@ -122,41 +122,58 @@ export default function MapPage() {
           />
         )}
 
-        {(filteredSites.length > 0 ? filteredSites : siteData).map((site) => {
+        {displayedSites.map((site) => {
           const position = [site.lat, site.lon];
-          const isSelected = selectedScreeningIds.includes(site.Screening_Location_ID);
+          const markerKey = site.markerKey;
+          const isHighlighted = highlightedMarkerKey === markerKey;
 
-          const baseColor =
-            site.Site_Type === 'Large Market' ? 'blue' :
-            site.Site_Type === 'Health facility' ? 'green' :
-            'red';
-
-          const iconColor = isSelected ? 'yellow' : baseColor;
+          let iconColor;
+          if (isHighlighted) {
+            iconColor = 'yellow';
+          } else if (site.Site_Type === 'Large Market') {
+            iconColor = 'blue';
+          } else if (site.Site_Type === 'Health facility') {
+            iconColor = 'green';
+          } else {
+            iconColor = 'red';
+          }
 
           const icon = new L.Icon({
             iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${iconColor}.png`,
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: isSelected ? [40, 60] : [25, 41],
+            iconSize: [25, 41],
             iconAnchor: [12, 41],
             popupAnchor: [1, -34],
             shadowSize: [41, 41],
-            className: isSelected ? 'marker-selected' : '',
           });
 
           return (
-            <Marker key={site.Screening_Location_ID} position={position} icon={icon}
+            <Marker
+              key={markerKey}
+              position={position}
+              icon={icon}
               ref={(ref) => {
-                if (ref) markerRefs.current[site.Screening_Location_ID] = ref;
+                if (ref) markerRefs.current[markerKey] = ref;
+              }}
+              eventHandlers={{
+                click: () => {
+                  setHighlightedMarkerKey(prev =>
+                    prev === markerKey ? null : markerKey
+                  );
+                },
               }}
             >
               <Popup>
-                <strong>ID:</strong> {site.screeningId ?? 'N/A'} <br />
+                <strong>ID:</strong> {site.screeningId} <br />
+                <strong>Type:</strong> {site.Site_Type} <br />
+                <strong>Total Screened:</strong> {site.total_screened} <br />
+                <strong>Total Diagnosed:</strong> {site.total_diagnosed}
               </Popup>
             </Marker>
           );
         })}
 
-        <AutoZoom sites={filteredSites.length > 0 ? filteredSites : siteData} />
+        <AutoZoom sites={displayedSites} />
       </MapContainer>
 
       <div style={{ position: 'relative', zIndex: 10 }}>
@@ -166,7 +183,9 @@ export default function MapPage() {
           onFilter={setFilteredSites}
           selectedScreeningIds={selectedScreeningIds}
           setSelectedScreeningIds={setSelectedScreeningIds}
-          setHoveredScreeningId={setHoveredScreeningId}
+          selectedMarkerKey={highlightedMarkerKey}
+          setSelectedMarkerKey={setHighlightedMarkerKey}
+          setHighlightedMarkerKey={setHighlightedMarkerKey}
         />
       </div>
     </div>
