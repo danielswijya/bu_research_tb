@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@mui/material';
 import Papa from 'papaparse';
 import { supabase } from '../../lib/supabaseClient';
+import DownloadIcon from '@mui/icons-material/Download';
 
 export default function ExportCSVButton() {
 const handleExportCSV = async () => {
@@ -33,8 +34,8 @@ document.body.removeChild(link);
 };
 
 return (
-<Button variant="outlined" onClick={handleExportCSV} sx={{ mb: 2, backgroundColor: "#9854CB", color: "#FFFFFF" }}>
-    Download .csv File
+<Button variant="outlined" onClick={handleExportCSV} sx={{ mb: 0, backgroundColor: "#9854CB", color: "#FFFFFF" }}>
+    <DownloadIcon />
 </Button>
 );
 }
