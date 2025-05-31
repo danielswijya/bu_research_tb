@@ -203,13 +203,13 @@ export default function SidebarSelector({
         boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
       }}
     >
-      <SidebarFilterControls
-        filters={filters}
-        setFilters={setFilters}
-        availableZonaIds={[
-          ...new Set(siteData.map((site) => site.Zona_ID)),
-        ]}
-      />
+      <Box sx={{ pt: 1.75, pb: 1 }}>
+        <SidebarFilterControls
+          filters={filters}
+          setFilters={setFilters}
+          availableZonaIds={Array.from(new Set(siteData.map(site => site.Zona_ID)))}
+        />
+      </Box>
 
       <Box
         sx={{
@@ -221,6 +221,11 @@ export default function SidebarSelector({
           pb: 2,
         }}
       >
+
+      <Typography variant="caption" color="text.secondary" sx={{textAlign: 'center', width: '100%', marginLeft: '20px', mb: 2}}>
+        Select locations below & Press "Confirm Selection"
+      </Typography>
+
         <Button
           sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
           fullWidth

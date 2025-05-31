@@ -23,7 +23,6 @@ useEffect(() => {
     div.style.borderRadius = '6px';
     div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
     div.style.fontSize = '13px';
-    div.style.marginBlock ='80px';
 
     return div;
     };

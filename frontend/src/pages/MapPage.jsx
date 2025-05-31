@@ -92,14 +92,12 @@ export default function MapPage() {
   const displayedSites = filteredSites.length > 0 ? filteredSites : siteData;
 
   return (
-    <div style={{ height: '100vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
-        <Collapse in={showAlert} timeout="auto" unmountOnExit>
-          <Alert severity="success" sx={{ width: '90vw', maxWidth: 600 }}>
-            Confirmed screening zones!
-          </Alert>
-        </Collapse>
-      </div>
+    <div style={{ height: '91vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, pointerEvents: "none" }}>
+      <Collapse in={showAlert} timeout="auto" unmountOnExit>
+        <Alert severity="success">Confirmed screening zones!</Alert>
+      </Collapse>
+    </div>
 
       <DistrictFilter value={selectedDistrict} onChange={setSelectedDistrict} />
 
