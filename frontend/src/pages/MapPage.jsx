@@ -99,7 +99,7 @@ export default function MapPage() {
       </Collapse>
     </div>
 
-      <DistrictFilter value={selectedDistrict} onChange={setSelectedDistrict} />
+      {/* <DistrictFilter value={selectedDistrict} onChange={setSelectedDistrict} /> */}
 
       <MapContainer
         center={[-12.05, -77.05]}
