@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Box, Typography, Checkbox, Button } from '@mui/material';
+import { Box, Typography, Checkbox, Button, Stack, Chip } from '@mui/material';
 import SidebarFilterControls from './SidebarFilterControls';
 
 export default function SidebarSelector({
@@ -17,9 +17,12 @@ export default function SidebarSelector({
   const [zoneNames, setZoneNames] = useState(new Map());
   const [flattenedEntries, setFlattenedEntries] = useState([]);
   const [filters, setFilters] = useState({
+    selectedTypes: [],
     selectedZonaIds: [],
     rankByScreened: false,
     rankByDiagnosed: false,
+    rankByYield: false,
+    yieldRange: [0, 100],
     searchQuery: '',
   });
   const [pulseId, setpulseId] = useState(null);
@@ -29,11 +32,18 @@ export default function SidebarSelector({
     [siteData]
   );
 
-  const visibleEntries = flattenedEntries.filter(
-    (entry) =>
-      filters.selectedZonaIds.length === 0 ||
-      filters.selectedZonaIds.includes(entry.zonaId)
-  );
+  const visibleEntries = flattenedEntries.filter((entry) => {
+    const yieldRatio = entry.total_screened > 0
+      ? (entry.total_diagnosed / entry.total_screened) * 100
+      : 0;
+    const [minYield, maxYield] = filters.yieldRange;
+
+    return (
+      (filters.selectedZonaIds.length === 0 ||
+        filters.selectedZonaIds.includes(entry.zonaId)) &&
+      yieldRatio >= minYield && yieldRatio <= maxYield
+    );
+  });
 
   useEffect(() => {
     fetchLocations();
@@ -64,7 +74,6 @@ export default function SidebarSelector({
     }
   }
 
-  // 🔁 Aggregate sidebar entries by screening location
   useEffect(() => {
     if (!locations.length || !siteData.length || zoneNames.size === 0) return;
 
@@ -94,33 +103,42 @@ export default function SidebarSelector({
 
         const siteMap = new Map();
 
-        for (const site of matchingSites) {
-          const id = site.Screening_Location_ID;
-          if (!siteMap.has(id)) {
-            siteMap.set(id, {
-              zonaId: loc.Zona_ID,
-              rank: loc.Rank,
-              screeningId: id,
-              populationMedian: loc.total_screened_median ?? 'N/A',
-              district: loc.district,
-              lat: site.lat,
-              lon: site.lon,
-              Site_Type: site.Site_Type,
-              total_screened: site.total_screened || 0,
-              total_diagnosed: site.total_diagnosed || 0,
-              markerKey: site.markerKey,
-            });
-          } else {
-            const prev = siteMap.get(id);
-            siteMap.set(id, {
-              ...prev,
-              total_screened:
-                prev.total_screened + (site.total_screened || 0),
-              total_diagnosed:
-                prev.total_diagnosed + (site.total_diagnosed || 0),
-            });
-          }
-        }
+        const [minYield, maxYield] = filters.yieldRange;
+
+for (const site of matchingSites) {
+  const total_screened = site.total_screened || 0;
+  const total_diagnosed = site.total_diagnosed || 0;
+  const yieldRatio = total_screened > 0
+    ? (total_diagnosed / total_screened) * 100
+    : 0;
+
+  if (yieldRatio < minYield || yieldRatio > maxYield) continue; // 🛑 Skip if out of range
+
+  const id = site.Screening_Location_ID;
+  if (!siteMap.has(id)) {
+    siteMap.set(id, {
+      zonaId: loc.Zona_ID,
+      rank: loc.Rank,
+      screeningId: id,
+      populationMedian: loc.total_screened_median ?? 'N/A',
+      district: loc.district,
+      lat: site.lat,
+      lon: site.lon,
+      Site_Type: site.Site_Type,
+      total_screened,
+      total_diagnosed,
+      markerKey: site.markerKey,
+    });
+  } else {
+    const prev = siteMap.get(id);
+    siteMap.set(id, {
+      ...prev,
+      total_screened: prev.total_screened + total_screened,
+      total_diagnosed: prev.total_diagnosed + total_diagnosed,
+    });
+  }
+}
+
 
         return Array.from(siteMap.values());
       });
@@ -130,12 +148,17 @@ export default function SidebarSelector({
       ranked.sort((a, b) => b.total_screened - a.total_screened);
     if (filters.rankByDiagnosed)
       ranked.sort((a, b) => b.total_diagnosed - a.total_diagnosed);
+    if (filters.rankByYield)
+      ranked.sort(
+        (a, b) =>
+          (b.total_diagnosed / b.total_screened || 0) -
+          (a.total_diagnosed / a.total_screened || 0)
+      );
 
     setFlattenedEntries(ranked);
     onFilter?.(ranked);
   }, [locations, siteData, filters, zoneNames]);
 
-  // 🔁 Scroll and pulse effect
   useEffect(() => {
     if (!selectedMarkerKey || flattenedEntries.length === 0) return;
 
@@ -207,7 +230,12 @@ export default function SidebarSelector({
         <SidebarFilterControls
           filters={filters}
           setFilters={setFilters}
-          availableZonaIds={Array.from(new Set(siteData.map(site => site.Zona_ID)))}
+          availableZonaIds={Array.from(
+            new Set(siteData.map((site) => site.Zona_ID))
+          )}
+          availableSiteTypes={[
+            ...new Set(siteData.map((site) => site.Site_Type).filter(Boolean)),
+          ]}
         />
       </Box>
 
@@ -221,10 +249,13 @@ export default function SidebarSelector({
           pb: 2,
         }}
       >
-
-      <Typography variant="caption" color="text.secondary" sx={{textAlign: 'center', width: '100%', marginLeft: '20px', mb: 2}}>
-        Select locations below & Press "Confirm Selection"
-      </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ textAlign: 'center', width: '100%', marginLeft: '20px', mb: 2 }}
+        >
+          Select locations below & Press "Confirm Selection"
+        </Typography>
 
         <Button
           sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
@@ -260,7 +291,7 @@ export default function SidebarSelector({
               position: 'relative',
               animation:
                 pulseId === entry.markerKey
-                  ? 'pulse 1.2s ease-in-out 3'
+                  ? 'pulse 1.4s ease-in-out 7'
                   : 'none',
             }}
             onClick={() => {
@@ -269,14 +300,22 @@ export default function SidebarSelector({
               setHighlightedMarkerKey(entry.markerKey);
             }}
           >
-            <Checkbox
-              checked={isSelected}
-              onChange={(e) => {
-                e.stopPropagation();
-                toggleSelection(entry.markerKey);
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 10,
+                pointerEvents: 'auto',
               }}
-              sx={{ position: 'absolute', top: 8, right: 8 }}
-            />
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Checkbox
+                checked={isSelected}
+                onChange={() => toggleSelection(entry.markerKey)}
+              />
+            </Box>
+
             <Typography variant="body2">
               {zoneNames.get(entry.zonaId) ?? 'Unknown'}
             </Typography>
@@ -307,19 +346,15 @@ export default function SidebarSelector({
         );
       })}
 
-      <style jsx global>{`
+      <style>{`
         @keyframes pulse {
           0% {
             box-shadow: 0 0 0 0 rgba(152, 84, 203, 0.5);
             transform: scale(1);
           }
-          30% {
-            box-shadow: 0 0 0 12px rgba(152, 84, 203, 0.2);
-            transform: scale(1.02);
-          }
-          60% {
-            box-shadow: 0 0 0 0 rgba(152, 84, 203, 0);
-            transform: scale(1);
+          50% {
+            box-shadow: 0 0 0 10px rgba(152, 84, 203, 0.15);
+            transform: scale(1.05);
           }
           100% {
             box-shadow: 0 0 0 0 rgba(152, 84, 203, 0);

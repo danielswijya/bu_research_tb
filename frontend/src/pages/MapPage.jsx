@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState, useRef } from 'react';
-import { Alert, Collapse } from '@mui/material';
+import { Alert, Collapse, Box, Stack, Typography } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -31,10 +31,18 @@ export default function MapPage() {
   const [selectedScreeningIds, setSelectedScreeningIds] = useState([]);
   const [selectedMarkerId, setSelectedMarkerId] = useState(null);
   const [highlightedMarkerKey, setHighlightedMarkerKey] = useState(null);
+  const [filters, setFilters] = useState({
+    selectedTypes: [],
+    selectedZonaIds: [],
+    rankByScreened: false,
+    rankByDiagnosed: false,
+    rankByYield: false,
+    yieldRange: [0, 100],
+    searchQuery: '',
+  });
 
   const markerRefs = useRef({});
 
-  // 🔁 Fetch data and aggregate by Screening_Location_ID
   useEffect(() => {
     fetch('/data/residential_zones.geojson')
       .then(res => res.json())
@@ -56,7 +64,7 @@ export default function MapPage() {
         if (!siteMap.has(key)) {
           siteMap.set(key, {
             ...site,
-            markerKey: key, // ✅ use Screening_Location_ID directly
+            markerKey: key,
             total_screened: site.total_screened || 0,
             total_diagnosed: site.total_diagnosed || 0,
           });
@@ -77,7 +85,6 @@ export default function MapPage() {
     fetchData();
   }, []);
 
-  // 🔁 Open popup when sidebar card is clicked
   useEffect(() => {
     if (highlightedMarkerKey && markerRefs.current[highlightedMarkerKey]) {
       markerRefs.current[highlightedMarkerKey].openPopup();
@@ -93,13 +100,11 @@ export default function MapPage() {
 
   return (
     <div style={{ height: '91vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
-    <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, pointerEvents: "none" }}>
-      <Collapse in={showAlert} timeout="auto" unmountOnExit>
-        <Alert severity="success">Confirmed screening zones!</Alert>
-      </Collapse>
-    </div>
-
-      {/* <DistrictFilter value={selectedDistrict} onChange={setSelectedDistrict} /> */}
+      <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, pointerEvents: "none" }}>
+        <Collapse in={showAlert} timeout="auto" unmountOnExit>
+          <Alert severity="success">Confirmed screening zones!</Alert>
+        </Collapse>
+      </div>
 
       <MapContainer
         center={[-12.05, -77.05]}
@@ -124,9 +129,18 @@ export default function MapPage() {
           const position = [site.lat, site.lon];
           const markerKey = site.markerKey;
           const isHighlighted = highlightedMarkerKey === markerKey;
+          const isSelected = selectedScreeningIds.includes(markerKey);
+          const yieldRatio = site.total_screened > 0
+            ? (site.total_diagnosed / site.total_screened) * 100
+            : 0;
+
+          const [minYield, maxYield] = filters.yieldRange;
+          const inRange = yieldRatio >= minYield && yieldRatio <= maxYield;
 
           let iconColor;
-          if (isHighlighted) {
+          if (isSelected) {
+            iconColor = 'orange';
+          } else if (isHighlighted) {
             iconColor = 'yellow';
           } else if (site.Site_Type === 'Large Market') {
             iconColor = 'blue';
@@ -135,6 +149,8 @@ export default function MapPage() {
           } else {
             iconColor = 'red';
           }
+
+          if (!inRange) return null;
 
           const icon = new L.Icon({
             iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${iconColor}.png`,
@@ -162,7 +178,7 @@ export default function MapPage() {
               }}
             >
               <Popup>
-                <strong>ID:</strong> {site.screeningId} <br />
+                <strong>Location ID:</strong> {site.screeningId} <br />
                 <strong>Type:</strong> {site.Site_Type} <br />
                 <strong>Total Screened:</strong> {site.total_screened} <br />
                 <strong>Total Diagnosed:</strong> {site.total_diagnosed}
@@ -176,6 +192,8 @@ export default function MapPage() {
 
       <div style={{ position: 'relative', zIndex: 10 }}>
         <SidebarSelector
+          filters={filters}
+          setFilters={setFilters}
           onConfirm={handleShowAlert}
           siteData={siteData}
           onFilter={setFilteredSites}
