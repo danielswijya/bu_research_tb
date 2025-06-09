@@ -121,13 +121,14 @@ return (
         min={0}
         max={1}
         step={0.01}
+        valueLabelFormat={(val) => `${val}%`}
         marks={[
-            { value: 0, label: '0' },
-            { value: 0.2, label: '0.2' },
-            { value: 0.4, label: '0.4' },
-            { value: 0.6, label: '0.6' },
-            { value: 0.8, label: '0.8' },
-            { value: 1, label: '1' },
+            { value: 0, label: '0%' },
+            { value: 0.2, label: '0.2%' },
+            { value: 0.4, label: '0.4%' },
+            { value: 0.6, label: '0.6%' },
+            { value: 0.8, label: '0.8%' },
+            { value: 1, label: '1%' },
         ]}
         sx={{ mt: 1.5 }}
         />
