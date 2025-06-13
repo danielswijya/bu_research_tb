@@ -42,6 +42,7 @@ export default function TicketsPage() {
       .update({
         screened_count: ticket.screened_count,
         positive_count: ticket.positive_count,
+        saved: true,
       })
       .eq('id', ticket.id);
 
@@ -49,6 +50,13 @@ export default function TicketsPage() {
       console.error('❌ Update failed:', error);
     } else {
       console.log('✅ Updated ticket:', ticket);
+      setEditableFields((prev) =>
+      prev.map((t) =>
+        t.id === ticket.id
+          ? { ...t, saved: true }
+          : t
+      )
+    );
       setShowAlert(true);
       setTimeout(() => setShowAlert(false), 5000);
     }
@@ -65,18 +73,35 @@ export default function TicketsPage() {
   };
 
   const handleSaveAll = async () => {
-    for (let ticket of editableFields) {
-      await supabase
-        .from('tickets')
-        .update({
-          screened_count: ticket.screened_count,
-          positive_count: ticket.positive_count,
-        })
-        .eq('id', ticket.id);
+  const updatedTickets = [];
+
+  for (let ticket of editableFields) {
+    const { error } = await supabase
+      .from('tickets')
+      .update({
+        screened_count: ticket.screened_count,
+        positive_count: ticket.positive_count,
+        saved: true, // ✅ persist saved state
+      })
+      .eq('id', ticket.id);
+
+    if (!error) {
+      updatedTickets.push({ ...ticket, saved: true });
     }
-    setShowAlert(true);
-    setTimeout(() => setShowAlert(false), 5000);
-  };
+  }
+
+  // ✅ update local state to reflect saved = true
+  setEditableFields((prev) =>
+    prev.map((t) => {
+      const updated = updatedTickets.find((u) => u.id === t.id);
+      return updated ? updated : t;
+    })
+  );
+
+  setShowAlert(true);
+  setTimeout(() => setShowAlert(false), 5000);
+};
+
 
   const handleDeleteAll = async () => {
     const ids = editableFields.map((t) => t.id);

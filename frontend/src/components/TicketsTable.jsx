@@ -50,7 +50,6 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selected, setSelected] = useState([]);
-  const [savedIds, setSavedIds] = useState(new Set());
   const [statusFilter, setStatusFilter] = useState('all');
 
   const handleRequestSort = (event, property) => {
@@ -92,13 +91,13 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
     setSelected([]);
   };
 
-  const handleSave = (ticket) => {
-    onSave(ticket);
-    setSavedIds((prev) => new Set(prev).add(ticket.id));
+  const handleSave = async (ticket) => {
+    const updated = { ...ticket, saved: true };
+    await onSave(updated); // This must update Supabase with saved: true
   };
 
   const filteredTickets = tickets.filter((t) => {
-    const isSaved = savedIds.has(t.id);
+    const isSaved = t.saved === true;
     if (statusFilter === 'all') return true;
     if (statusFilter === 'incomplete') return !isSaved;
     if (statusFilter === 'saved') return isSaved;
@@ -177,7 +176,8 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
           <TableBody>
             {visibleRows.map((ticket, index) => {
               const isItemSelected = isSelected(ticket.id);
-              const isSaved = savedIds.has(ticket.id);
+              const isSaved = ticket.saved === true;
+
               return (
                 <TableRow key={ticket.id || index} selected={isItemSelected}>
                   <TableCell padding="checkbox">
@@ -205,8 +205,17 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
                     <input
                       type="number"
                       value={ticket.screened_count ?? ''}
-                      onChange={(e) => onChange(index, 'screened_count', e.target.value === '' ? null : parseInt(e.target.value))}
-                      style={{ width: '80px', padding: '4px 6px', border: '1px solid #ccc', borderRadius: 6, outline: 'none', fontSize: '14px' }}
+                      onChange={(e) =>
+                        onChange(index, 'screened_count', e.target.value === '' ? null : parseInt(e.target.value))
+                      }
+                      style={{
+                        width: '80px',
+                        padding: '4px 6px',
+                        border: '1px solid #ccc',
+                        borderRadius: 6,
+                        outline: 'none',
+                        fontSize: '14px'
+                      }}
                     />
                   </TableCell>
 
@@ -214,8 +223,17 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
                     <input
                       type="number"
                       value={ticket.positive_count ?? ''}
-                      onChange={(e) => onChange(index, 'positive_count', e.target.value === '' ? null : parseInt(e.target.value))}
-                      style={{ width: '80px', padding: '4px 6px', border: '1px solid #ccc', borderRadius: 6, outline: 'none', fontSize: '14px' }}
+                      onChange={(e) =>
+                        onChange(index, 'positive_count', e.target.value === '' ? null : parseInt(e.target.value))
+                      }
+                      style={{
+                        width: '80px',
+                        padding: '4px 6px',
+                        border: '1px solid #ccc',
+                        borderRadius: 6,
+                        outline: 'none',
+                        fontSize: '14px'
+                      }}
                     />
                   </TableCell>
 
