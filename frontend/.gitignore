@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 .env
 
-frontend/lib/supabaseClient.js
+/lib/supabaseClient.js
