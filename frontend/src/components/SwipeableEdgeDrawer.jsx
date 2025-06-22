@@ -18,12 +18,14 @@ export default function SidebarSelector({
   const [flattenedEntries, setFlattenedEntries] = useState([]);
   const [filters, setFilters] = useState({
     selectedTypes: [],
-    selectedZonaIds: [],
+    selectedZonaIds: [], // This might be redundant if using zonaIdTokens for filtering
     rankByScreened: false,
     rankByDiagnosed: false,
     rankByYield: false,
     yieldRange: [0, 100],
-    searchQuery: '',
+    nameTokens: [],
+    zonaIdTokens: [],
+    locationIdTokens: [],
   });
   const [pulseId, setpulseId] = useState(null);
 
@@ -31,19 +33,6 @@ export default function SidebarSelector({
     () => new Set(siteData.map((site) => site.Zona_ID)),
     [siteData]
   );
-
-  const visibleEntries = flattenedEntries.filter((entry) => {
-    const yieldRatio = entry.total_screened > 0
-      ? (entry.total_diagnosed / entry.total_screened) * 100
-      : 0;
-    const [minYield, maxYield] = filters.yieldRange;
-
-    return (
-      (filters.selectedZonaIds.length === 0 ||
-        filters.selectedZonaIds.includes(entry.zonaId)) &&
-      yieldRatio >= minYield && yieldRatio <= maxYield
-    );
-  });
 
   useEffect(() => {
     fetchLocations();
@@ -77,25 +66,10 @@ export default function SidebarSelector({
   useEffect(() => {
     if (!locations.length || !siteData.length || zoneNames.size === 0) return;
 
-    const tokens = filters.searchQuery
-      .toLowerCase()
-      .split(';')
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const hasSearch = tokens.length > 0;
+    const [minYield, maxYield] = filters.yieldRange;
 
     const filtered = locations
       .filter((loc) => siteZonaIds.has(loc.Zona_ID))
-      .filter((loc) => {
-        if (!hasSearch) return true;
-        const zonaId = Math.floor(loc.Zona_ID).toString();
-        const zoneName = (zoneNames.get(Number(zonaId)) || '').toLowerCase();
-        return (
-          tokens.some((token) => zonaId.startsWith(token)) ||
-          tokens.some((token) => zoneName.includes(token))
-        );
-      })
       .flatMap((loc) => {
         const matchingSites = siteData.filter(
           (site) => site.Zona_ID === loc.Zona_ID
@@ -103,44 +77,72 @@ export default function SidebarSelector({
 
         const siteMap = new Map();
 
-        const [minYield, maxYield] = filters.yieldRange;
+        for (const site of matchingSites) {
+          const total_screened = site.total_screened || 0;
+          const total_diagnosed = site.total_diagnosed || 0;
+          const yieldRatio = total_screened > 0
+            ? (total_diagnosed / total_screened) * 100
+            : 0;
 
-for (const site of matchingSites) {
-  const total_screened = site.total_screened || 0;
-  const total_diagnosed = site.total_diagnosed || 0;
-  const yieldRatio = total_screened > 0
-    ? (total_diagnosed / total_screened) * 100
-    : 0;
+          // Apply Yield Ratio Filter
+          if (yieldRatio < minYield || yieldRatio > maxYield) continue;
 
-  if (yieldRatio < minYield || yieldRatio > maxYield) continue; // 🛑 Skip if out of range
-
-  const id = site.Screening_Location_ID;
-  if (!siteMap.has(id)) {
-    siteMap.set(id, {
-      zonaId: loc.Zona_ID,
-      rank: loc.Rank,
-      screeningId: id,
-      populationMedian: loc.total_screened_median ?? 'N/A',
-      district: loc.district,
-      lat: site.lat,
-      lon: site.lon,
-      Site_Type: site.Site_Type,
-      total_screened,
-      total_diagnosed,
-      markerKey: site.markerKey,
-    });
-  } else {
-    const prev = siteMap.get(id);
-    siteMap.set(id, {
-      ...prev,
-      total_screened: prev.total_screened + total_screened,
-      total_diagnosed: prev.total_diagnosed + total_diagnosed,
-    });
-  }
-}
-
-
+          const id = site.Screening_Location_ID;
+          if (!siteMap.has(id)) {
+            siteMap.set(id, {
+              zonaId: loc.Zona_ID,
+              rank: loc.Rank,
+              screeningId: id,
+              populationMedian: loc.total_screened_median ?? 'N/A',
+              district: loc.district,
+              lat: site.lat,
+              lon: site.lon,
+              Site_Type: site.Site_Type,
+              total_screened,
+              total_diagnosed,
+              markerKey: site.markerKey,
+            });
+          } else {
+            const prev = siteMap.get(id);
+            siteMap.set(id, {
+              ...prev,
+              total_screened: prev.total_screened + total_screened,
+              total_diagnosed: prev.total_diagnosed + total_diagnosed,
+            });
+          }
+        }
         return Array.from(siteMap.values());
+      })
+      .filter((entry) => {
+        // Apply multi-token filters
+        const zoneName = (zoneNames.get(Number(entry.zonaId)) || '').toLowerCase();
+        const zonaIdStr = Math.floor(entry.zonaId).toString();
+        const locationIdStr = entry.screeningId ? entry.screeningId.toString() : ''; // Ensure it's a string
+
+        const nameMatch =
+          filters.nameTokens.length === 0 ||
+          filters.nameTokens.some((token) =>
+            zoneName.includes(token.toLowerCase())
+          );
+
+        const zonaIdMatch =
+          filters.zonaIdTokens.length === 0 ||
+          filters.zonaIdTokens.some((token) =>
+            zonaIdStr.startsWith(token)
+          );
+
+        const locationIdMatch =
+          filters.locationIdTokens.length === 0 ||
+          filters.locationIdTokens.some((token) =>
+            locationIdStr.startsWith(token)
+          );
+
+        // Apply site type filter
+        const siteTypeMatch =
+          filters.selectedTypes.length === 0 ||
+          filters.selectedTypes.includes(entry.Site_Type);
+
+        return nameMatch && zonaIdMatch && locationIdMatch && siteTypeMatch;
       });
 
     const ranked = [...filtered];
@@ -268,7 +270,7 @@ for (const site of matchingSites) {
         </Button>
       </Box>
 
-      {visibleEntries.map((entry, index) => {
+      {flattenedEntries.map((entry, index) => { // Use flattenedEntries directly as it's already filtered
         const isSelected = selectedScreeningIds.includes(entry.markerKey);
         const isHighlighted = selectedMarkerKey === entry.markerKey;
 
