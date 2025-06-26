@@ -188,11 +188,12 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
         valueLabelFormat={(val) => `${val}%`}
         marks={[
             { value: 0, label: '0%' },
-            { value: 0.2, label: '0.2%' },
-            { value: 0.4, label: '0.4%' },
-            { value: 0.6, label: '0.6%' },
-            { value: 0.8, label: '0.8%' },
+            { value: 0.5, label: '0.5%' },
             { value: 1, label: '1%' },
+            { value: 1.5, label: '1.5%'},
+            {value: 2, label:'2%'},
+            {value: 2.5, label:'2.5%'},
+            { value: 3, label: '3%'},
         ]}
         sx={{ mt: 1.5 }}
         />
