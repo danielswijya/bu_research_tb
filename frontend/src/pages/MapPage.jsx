@@ -1,5 +1,5 @@
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Alert, Collapse, Box, Stack, Typography } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
@@ -8,6 +8,7 @@ import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import DistrictFilter from '../components/DistrictFilter';
 import MapLegend from '../components/MapLegend';
 import L from 'leaflet';
+import React from 'react';
 
 function AutoZoom({ sites }) {
   const map = useMap();
@@ -20,6 +21,18 @@ function AutoZoom({ sites }) {
 
   return null;
 }
+
+const MemoizedMarker = React.memo(({ position, icon, popupContent, markerKey, eventHandlers, refCallback }) => (
+  <Marker
+    key={markerKey}
+    position={position}
+    icon={icon}
+    ref={refCallback}
+    eventHandlers={eventHandlers}
+  >
+    <Popup>{popupContent}</Popup>
+  </Marker>
+));
 
 export default function MapPage() {
   const [zoneData, setZoneData] = useState(null);
@@ -54,32 +67,27 @@ export default function MapPage() {
         .select('Zona_ID');
 
       const { data: site_data } = await supabase
-        .from('site_data')
+        .from('filtered_site_data')
         .select('*');
 
-      const siteMap = new Map();
+      const latestSiteMap = new Map();
 
       site_data.forEach((site) => {
-        const key = site.Screening_Location_ID;
-        if (!siteMap.has(key)) {
-          siteMap.set(key, {
+        const existing = latestSiteMap.get(site.id);
+        const currentDate = new Date(site.Date);
+
+        if (!existing || new Date(existing.Date) < currentDate) {
+          latestSiteMap.set(site.id, {
             ...site,
-            markerKey: key,
-            total_screened: site.total_screened || 0,
-            total_diagnosed: site.total_diagnosed || 0,
-          });
-        } else {
-          const prev = siteMap.get(key);
-          siteMap.set(key, {
-            ...prev,
-            total_screened: prev.total_screened + (site.total_screened || 0),
-            total_diagnosed: prev.total_diagnosed + (site.total_diagnosed || 0),
+            markerKey: site.id,
+            total_screened: site.n_screened || 0,
+            total_diagnosed: site.n_diagnosed || 0,
           });
         }
       });
 
       setNeighborhoodStats(neighborhoods || []);
-      setSiteData(Array.from(siteMap.values()));
+      setSiteData(Array.from(latestSiteMap.values()));
     };
 
     fetchData();
@@ -96,7 +104,9 @@ export default function MapPage() {
     setTimeout(() => setShowAlert(false), 3000);
   };
 
-  const displayedSites = filteredSites.length > 0 ? filteredSites : siteData;
+  const displayedSites = useMemo(() => (
+    filteredSites.length > 0 ? filteredSites : siteData
+  ), [filteredSites, siteData]);
 
   return (
     <div style={{ height: '91vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -126,7 +136,7 @@ export default function MapPage() {
         )}
 
         {displayedSites.map((site) => {
-          const position = [site.lat, site.lon];
+          const position = [parseFloat(site.lat), parseFloat(site.lon)];
           const markerKey = site.markerKey;
           const isHighlighted = highlightedMarkerKey === markerKey;
           const isSelected = selectedScreeningIds.includes(markerKey);
@@ -136,21 +146,23 @@ export default function MapPage() {
 
           const [minYield, maxYield] = filters.yieldRange;
           const inRange = yieldRatio >= minYield && yieldRatio <= maxYield;
+          const districtMatches = !selectedDistrict || site.District === selectedDistrict;
+          if (!inRange || !districtMatches) return null;
 
           let iconColor;
+          const screeningType = site.Screening_performed_by?.toLowerCase() || '';
+
           if (isSelected) {
             iconColor = 'orange';
           } else if (isHighlighted) {
             iconColor = 'yellow';
-          } else if (site.Site_Type === 'Large Market') {
-            iconColor = 'blue';
-          } else if (site.Site_Type === 'Health facility') {
+          } else if (screeningType.includes('backpack')) {
             iconColor = 'green';
+          } else if (screeningType.includes('mobile')) {
+            iconColor = 'blue';
           } else {
             iconColor = 'red';
           }
-
-          if (!inRange) return null;
 
           const icon = new L.Icon({
             iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${iconColor}.png`,
@@ -162,13 +174,22 @@ export default function MapPage() {
           });
 
           return (
-            <Marker
+            <MemoizedMarker
               key={markerKey}
+              markerKey={markerKey}
               position={position}
               icon={icon}
-              ref={(ref) => {
-                if (ref) markerRefs.current[markerKey] = ref;
-              }}
+              popupContent={(
+                <>
+                  <strong>Location:</strong> {site.location_name} <br />
+                  <strong>District:</strong> {site.District} <br />
+                  <strong>Zona:</strong> {site.Zona_name} <br />
+                  <strong>Performed by:</strong> {site.Screening_performed_by} <br />
+                  <strong>Latest Date:</strong> {site.Date} <br />
+                  <strong>Total Screened:</strong> {site.total_screened} <br />
+                  <strong>Total Diagnosed:</strong> {site.total_diagnosed}
+                </>
+              )}
               eventHandlers={{
                 click: () => {
                   setHighlightedMarkerKey(prev =>
@@ -176,14 +197,10 @@ export default function MapPage() {
                   );
                 },
               }}
-            >
-              <Popup>
-                <strong>Location ID:</strong> {site.screeningId} <br />
-                <strong>Type:</strong> {site.Site_Type} <br />
-                <strong>Total Screened:</strong> {site.total_screened} <br />
-                <strong>Total Diagnosed:</strong> {site.total_diagnosed}
-              </Popup>
-            </Marker>
+              refCallback={(ref) => {
+                if (ref) markerRefs.current[markerKey] = ref;
+              }}
+            />
           );
         })}
 
