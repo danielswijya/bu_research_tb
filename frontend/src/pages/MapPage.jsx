@@ -1,11 +1,11 @@
+// ✅ MapPage updated to match SidebarSelector: combines entries by lat, lon, location_name and uses unified markerKey
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Alert, Collapse, Box, Stack, Typography } from '@mui/material';
+import { Alert, Collapse } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
 
 import SidebarSelector from '../components/SwipeableEdgeDrawer';
-import DistrictFilter from '../components/DistrictFilter';
 import MapLegend from '../components/MapLegend';
 import L from 'leaflet';
 import React from 'react';
@@ -42,7 +42,6 @@ export default function MapPage() {
   const [siteData, setSiteData] = useState([]);
   const [filteredSites, setFilteredSites] = useState([]);
   const [selectedScreeningIds, setSelectedScreeningIds] = useState([]);
-  const [selectedMarkerId, setSelectedMarkerId] = useState(null);
   const [highlightedMarkerKey, setHighlightedMarkerKey] = useState(null);
   const [filters, setFilters] = useState({
     selectedTypes: [],
@@ -70,24 +69,34 @@ export default function MapPage() {
         .from('filtered_site_data')
         .select('*');
 
-      const latestSiteMap = new Map();
+      const siteMap = new Map();
 
-      site_data.forEach((site) => {
-        const existing = latestSiteMap.get(site.id);
-        const currentDate = new Date(site.Date);
+      for (const site of site_data) {
+        const key = `${site.lat}_${site.lon}_${site.location_name}`;
+        const total_screened = site.n_screened || 0;
+        const total_diagnosed = site.n_diagnosed || 0;
 
-        if (!existing || new Date(existing.Date) < currentDate) {
-          latestSiteMap.set(site.id, {
+        if (!siteMap.has(key)) {
+          siteMap.set(key, {
             ...site,
-            markerKey: site.id,
-            total_screened: site.n_screened || 0,
-            total_diagnosed: site.n_diagnosed || 0,
+            markerKey: key,
+            total_screened,
+            total_diagnosed,
+            methods: new Set([site.Screening_performed_by])
+          });
+        } else {
+          const prev = siteMap.get(key);
+          siteMap.set(key, {
+            ...prev,
+            total_screened: prev.total_screened + total_screened,
+            total_diagnosed: prev.total_diagnosed + total_diagnosed,
+            methods: new Set([...prev.methods, site.Screening_performed_by])
           });
         }
-      });
+      }
 
       setNeighborhoodStats(neighborhoods || []);
-      setSiteData(Array.from(latestSiteMap.values()));
+      setSiteData(Array.from(siteMap.values()));
     };
 
     fetchData();
@@ -150,7 +159,7 @@ export default function MapPage() {
           if (!inRange || !districtMatches) return null;
 
           let iconColor;
-          const screeningType = site.Screening_performed_by?.toLowerCase() || '';
+          const screeningType = Array.from(site.methods).join(', ').toLowerCase();
 
           if (isSelected) {
             iconColor = 'orange';
@@ -184,7 +193,7 @@ export default function MapPage() {
                   <strong>Location:</strong> {site.location_name} <br />
                   <strong>District:</strong> {site.District} <br />
                   <strong>Zona:</strong> {site.Zona_name} <br />
-                  <strong>Performed by:</strong> {site.Screening_performed_by} <br />
+                  <strong>Performed by:</strong> {[...site.methods].join(', ')} <br />
                   <strong>Latest Date:</strong> {site.Date} <br />
                   <strong>Total Screened:</strong> {site.total_screened} <br />
                   <strong>Total Diagnosed:</strong> {site.total_diagnosed}

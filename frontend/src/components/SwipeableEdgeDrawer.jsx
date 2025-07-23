@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Box, Typography, Checkbox, Button, Stack, Chip } from '@mui/material';
+import { Box, Typography, Checkbox, Button } from '@mui/material';
 import SidebarFilterControls from './SidebarFilterControls';
+import MethodBadges from './ScreeningMethodBadge';
 
 export default function SidebarSelector({
   onConfirm,
@@ -13,12 +14,13 @@ export default function SidebarSelector({
   setSelectedMarkerKey,
   setHighlightedMarkerKey,
 }) {
-  const [locations, setLocations] = useState([]);
-  const [zoneNames, setZoneNames] = useState(new Map());
   const [flattenedEntries, setFlattenedEntries] = useState([]);
+  const [zoneNames, setZoneNames] = useState(new Map());
+  const [pulseId, setpulseId] = useState(null);
+
   const [filters, setFilters] = useState({
     selectedTypes: [],
-    selectedZonaIds: [], // This might be redundant if using zonaIdTokens for filtering
+    selectedZonaIds: [],
     rankByScreened: false,
     rankByDiagnosed: false,
     rankByYield: false,
@@ -27,25 +29,10 @@ export default function SidebarSelector({
     zonaIdTokens: [],
     locationIdTokens: [],
   });
-  const [pulseId, setpulseId] = useState(null);
-
-  const siteZonaIds = useMemo(
-    () => new Set(siteData.map((site) => site.Zona_ID)),
-    [siteData]
-  );
 
   useEffect(() => {
-    fetchLocations();
     fetchZoneNames();
   }, []);
-
-  async function fetchLocations() {
-    const { data, error } = await supabase
-      .from('neighborhood_stats')
-      .select('*');
-    if (error) console.error('❌ Supabase fetch error:', error);
-    else setLocations(data);
-  }
 
   async function fetchZoneNames() {
     try {
@@ -64,86 +51,53 @@ export default function SidebarSelector({
   }
 
   useEffect(() => {
-    if (!locations.length || !siteData.length || zoneNames.size === 0) return;
+    if (!siteData.length || zoneNames.size === 0) return;
 
     const [minYield, maxYield] = filters.yieldRange;
 
-    const filtered = locations
-      .filter((loc) => siteZonaIds.has(loc.Zona_ID))
-      .flatMap((loc) => {
-        const matchingSites = siteData.filter(
-          (site) => site.Zona_ID === loc.Zona_ID
+    const filtered = siteData.filter((site) => {
+      const yieldRatio =
+        site.total_screened > 0
+          ? (site.total_diagnosed / site.total_screened) * 100
+          : 0;
+
+      const inYieldRange = yieldRatio >= minYield && yieldRatio <= maxYield;
+
+      const siteType = [...(site.methods || [])].join(', ').toLowerCase();
+      const siteTypeMatch =
+        filters.selectedTypes.length === 0 ||
+        filters.selectedTypes.some((type) =>
+          siteType.includes(type.toLowerCase())
         );
 
-        const siteMap = new Map();
+      const zonaIdStr = site.Zona_ID?.toString() || '';
+      const zoneName = (site.Zona_name || '').toLowerCase();
+      const locationName = (site.location_name || '').toLowerCase();
 
-        for (const site of matchingSites) {
-          const total_screened = site.total_screened || 0;
-          const total_diagnosed = site.total_diagnosed || 0;
-          const yieldRatio = total_screened > 0
-            ? (total_diagnosed / total_screened) * 100
-            : 0;
+      const nameMatch =
+        filters.nameTokens.length === 0 ||
+        filters.nameTokens.some((token) =>
+          zoneName.includes(token.toLowerCase())
+        );
 
-          // Apply Yield Ratio Filter
-          if (yieldRatio < minYield || yieldRatio > maxYield) continue;
+      const zonaIdMatch =
+        filters.zonaIdTokens.length === 0 ||
+        filters.zonaIdTokens.some((token) => zonaIdStr.startsWith(token));
 
-          const id = site.Screening_Location_ID;
-          if (!siteMap.has(id)) {
-            siteMap.set(id, {
-              zonaId: loc.Zona_ID,
-              rank: loc.Rank,
-              screeningId: id,
-              populationMedian: loc.total_screened_median ?? 'N/A',
-              district: loc.district,
-              lat: site.lat,
-              lon: site.lon,
-              Site_Type: site.Site_Type,
-              total_screened,
-              total_diagnosed,
-              markerKey: site.markerKey,
-            });
-          } else {
-            const prev = siteMap.get(id);
-            siteMap.set(id, {
-              ...prev,
-              total_screened: prev.total_screened + total_screened,
-              total_diagnosed: prev.total_diagnosed + total_diagnosed,
-            });
-          }
-        }
-        return Array.from(siteMap.values());
-      })
-      .filter((entry) => {
-        // Apply multi-token filters
-        const zoneName = (zoneNames.get(Number(entry.zonaId)) || '').toLowerCase();
-        const zonaIdStr = Math.floor(entry.zonaId).toString();
-        const locationIdStr = entry.screeningId ? entry.screeningId.toString() : ''; // Ensure it's a string
+      const locationIdMatch =
+        filters.locationIdTokens.length === 0 ||
+        filters.locationIdTokens.some((token) =>
+          locationName.includes(token.toLowerCase())
+        );
 
-        const nameMatch =
-          filters.nameTokens.length === 0 ||
-          filters.nameTokens.some((token) =>
-            zoneName.includes(token.toLowerCase())
-          );
-
-        const zonaIdMatch =
-          filters.zonaIdTokens.length === 0 ||
-          filters.zonaIdTokens.some((token) =>
-            zonaIdStr.startsWith(token)
-          );
-
-        const locationIdMatch =
-          filters.locationIdTokens.length === 0 ||
-          filters.locationIdTokens.some((token) =>
-            locationIdStr.startsWith(token)
-          );
-
-        // Apply site type filter
-        const siteTypeMatch =
-          filters.selectedTypes.length === 0 ||
-          filters.selectedTypes.includes(entry.Site_Type);
-
-        return nameMatch && zonaIdMatch && locationIdMatch && siteTypeMatch;
-      });
+      return (
+        inYieldRange &&
+        siteTypeMatch &&
+        nameMatch &&
+        zonaIdMatch &&
+        locationIdMatch
+      );
+    });
 
     const ranked = [...filtered];
     if (filters.rankByScreened)
@@ -159,18 +113,15 @@ export default function SidebarSelector({
 
     setFlattenedEntries(ranked);
     onFilter?.(ranked);
-  }, [locations, siteData, filters, zoneNames]);
+  }, [siteData, filters, zoneNames]);
 
   useEffect(() => {
     if (!selectedMarkerKey || flattenedEntries.length === 0) return;
 
     const timeout = setTimeout(() => {
-      const el = document.getElementById(
-        `sidebar-entry-${selectedMarkerKey}`
-      );
+      const el = document.getElementById(`sidebar-entry-${selectedMarkerKey}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
         setTimeout(() => {
           setpulseId(selectedMarkerKey);
           setTimeout(() => setpulseId(null), 4000);
@@ -184,7 +135,7 @@ export default function SidebarSelector({
   const handleConfirm = async () => {
     const inserts = selectedScreeningIds.map((markerKey) => {
       const entry = flattenedEntries.find((e) => e.markerKey === markerKey);
-      return { Screening_Location_ID: entry?.screeningId };
+      return { Screening_Location_ID: entry?.id || null };
     });
 
     if (inserts.length > 0) {
@@ -228,51 +179,37 @@ export default function SidebarSelector({
         boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
       }}
     >
-      <Box sx={{ pt: 1.75, pb: 1 }}>
-        <SidebarFilterControls
-          filters={filters}
-          setFilters={setFilters}
-          availableZonaIds={Array.from(
-            new Set(siteData.map((site) => site.Zona_ID))
-          )}
-          availableSiteTypes={[
-            ...new Set(siteData.map((site) => site.Site_Type).filter(Boolean)),
-          ]}
-        />
-      </Box>
+      <SidebarFilterControls
+        filters={filters}
+        setFilters={setFilters}
+        availableZonaIds={[...new Set(siteData.map((s) => s.Zona_ID))]}
+        availableSiteTypes={[...new Set(siteData.flatMap((s) => [...(s.methods || [])]))]}
+      />
 
-      <Box
-        sx={{
-          position: 'sticky',
-          top: 0,
-          bgcolor: 'background.paper',
-          zIndex: 1,
-          pt: 1,
-          pb: 2,
-        }}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ textAlign: 'center', width: '100%', my: 2 }}
       >
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ textAlign: 'center', width: '100%', marginLeft: '20px', mb: 2 }}
-        >
-          Select locations below & Press "Confirm Selection"
-        </Typography>
+        Select locations below & Press "Confirm Selection"
+      </Typography>
 
-        <Button
-          sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
-          fullWidth
-          variant="contained"
-          disabled={selectedScreeningIds.length === 0}
-          onClick={handleConfirm}
-        >
-          Confirm Selection
-        </Button>
-      </Box>
+      <Button
+        sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10, mb: 2 }}
+        fullWidth
+        variant="contained"
+        disabled={selectedScreeningIds.length === 0}
+        onClick={handleConfirm}
+      >
+        Confirm Selection
+      </Button>
 
-      {flattenedEntries.map((entry, index) => { // Use flattenedEntries directly as it's already filtered
+      {flattenedEntries.map((entry) => {
         const isSelected = selectedScreeningIds.includes(entry.markerKey);
         const isHighlighted = selectedMarkerKey === entry.markerKey;
+        const yieldRatio = entry.total_screened > 0
+          ? (entry.total_diagnosed / entry.total_screened) * 100
+          : 0;
 
         return (
           <Box
@@ -302,6 +239,8 @@ export default function SidebarSelector({
               setHighlightedMarkerKey(entry.markerKey);
             }}
           >
+            <MethodBadges methods={entry.methods} />
+
             <Box
               sx={{
                 position: 'absolute',
@@ -318,50 +257,31 @@ export default function SidebarSelector({
               />
             </Box>
 
-            <Typography variant="body2">
-              {zoneNames.get(entry.zonaId) ?? 'Unknown'}
+            <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'normal', mr: 3 }}>
+              Location Name: {entry.location_name || 'Unknown'}
             </Typography>
             <Typography variant="subtitle2">
-              Zona ID: {entry.zonaId}
+              Zona: {entry.Zona_name || 'N/A'}
             </Typography>
+            <Typography variant="body2">District: {entry.District || 'N/A'}</Typography>
+            <Typography variant="body2">Total Screened: {entry.total_screened}</Typography>
+            <Typography variant="body2">Total Diagnosed: {entry.total_diagnosed}</Typography>
+            <Typography variant="body2">Yield: {yieldRatio.toFixed(2)}%</Typography>
             <Typography variant="body2">
-              Location ID: {entry.screeningId ?? 'N/A'}
+              Performed by: {[...(entry.methods || [])].join(', ')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {entry.district}
+              Date: {entry.Date || 'N/A'}
             </Typography>
-            <Typography variant="body2">
-              Total Screened: {entry.total_screened}
-            </Typography>
-            <Typography variant="body2">
-              Total Diagnosed: {entry.total_diagnosed}
-            </Typography>
-            <Typography variant="body2">
-              Yield Ratio:{' '}
-              {entry.total_screened > 0
-                ? ((entry.total_diagnosed / entry.total_screened) * 100).toFixed(2)
-                : '0.00'}
-              %
-            </Typography>
-            <Typography variant="body2">Type: {entry.Site_Type}</Typography>
           </Box>
         );
       })}
 
       <style>{`
         @keyframes pulse {
-          0% {
-            box-shadow: 0 0 0 0 rgba(152, 84, 203, 0.5);
-            transform: scale(1);
-          }
-          50% {
-            box-shadow: 0 0 0 10px rgba(152, 84, 203, 0.15);
-            transform: scale(1.05);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(152, 84, 203, 0);
-            transform: scale(1);
-          }
+          0% { box-shadow: 0 0 0 0 rgba(152, 84, 203, 0.5); transform: scale(1); }
+          50% { box-shadow: 0 0 0 10px rgba(152, 84, 203, 0.15); transform: scale(1.05); }
+          100% { box-shadow: 0 0 0 0 rgba(152, 84, 203, 0); transform: scale(1); }
         }
       `}</style>
     </Box>
