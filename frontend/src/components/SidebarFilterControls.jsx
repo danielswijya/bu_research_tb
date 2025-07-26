@@ -56,7 +56,7 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
 >
       <AccordionSummary>
         <Typography variant="subtitle1" fontWeight={600}>
-          Filter & Search Here
+          <FilterAltIcon/> Filter & Search Here
         </Typography>
       </AccordionSummary>
 

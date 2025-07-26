@@ -9,7 +9,7 @@ export default function MethodBadges({ methods }) {
         const isBackpack = method.toLowerCase().includes('backpack');
         const isMobile = method.toLowerCase().includes('mobile');
         const Icon = isBackpack ? BackpackIcon : isMobile ? LocalShippingIcon : null;
-        const bgColor = isBackpack ? 'orange' : isMobile ? 'darkblue' : 'gray';
+        const bgColor = isBackpack ? 'orange' : isMobile ? 'teal' : 'gray';
 
         return Icon ? (
           <Tooltip title={method} key={i}>

@@ -179,12 +179,14 @@ export default function SidebarSelector({
         boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
       }}
     >
+      <Box sx={{ pt: 1.75, pb: 1 }}>
       <SidebarFilterControls
         filters={filters}
         setFilters={setFilters}
         availableZonaIds={[...new Set(siteData.map((s) => s.Zona_ID))]}
         availableSiteTypes={[...new Set(siteData.flatMap((s) => [...(s.methods || [])]))]}
       />
+      </Box>
 
       <Typography
         variant="caption"
