@@ -1,4 +1,3 @@
-// frontend/src/components/AdvancedOptionsDialog.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -20,22 +19,27 @@ export default function AdvancedOptionsDialog({
   onClose,
   initialNameTokens,
   initialZonaIdTokens,
-  initialLocationIdTokens,
+  // FIX: Change to initialDistrictTokens to match parent component
+  initialDistrictTokens,
+  // FIX: Change to onApplyFilters to pass the new districtTokens
   onApplyFilters,
 }) {
   const [nameInput, setNameInput] = useState('');
   const [zonaIdInput, setZonaIdInput] = useState('');
-  const [locationIdInput, setLocationIdInput] = useState('');
+  // FIX: New state for District input
+  const [districtInput, setDistrictInput] = useState('');
 
   const [nameTokens, setNameTokens] = useState(initialNameTokens || []);
   const [zonaIdTokens, setZonaIdTokens] = useState(initialZonaIdTokens || []);
-  const [locationIdTokens, setLocationIdTokens] = useState(initialLocationIdTokens || []);
+  // FIX: New state for District tokens
+  const [districtTokens, setDistrictTokens] = useState(initialDistrictTokens || []);
 
   useEffect(() => {
     setNameTokens(initialNameTokens || []);
     setZonaIdTokens(initialZonaIdTokens || []);
-    setLocationIdTokens(initialLocationIdTokens || []);
-  }, [initialNameTokens, initialZonaIdTokens, initialLocationIdTokens]);
+    // FIX: Sync state with initialDistrictTokens prop
+    setDistrictTokens(initialDistrictTokens || []);
+  }, [initialNameTokens, initialZonaIdTokens, initialDistrictTokens]);
 
   const handleAddToken = (tokenType, input, setInput, setTokens) => {
     if (input.trim() !== '') {
@@ -44,7 +48,7 @@ export default function AdvancedOptionsDialog({
     }
   };
 
-  const handleDeleteToken = (tokenType, tokenToDelete, setTokens) => {
+  const handleDeleteToken = (tokenToDelete, setTokens) => {
     setTokens((prev) => prev.filter((token) => token !== tokenToDelete));
   };
 
@@ -52,7 +56,8 @@ export default function AdvancedOptionsDialog({
     onApplyFilters({
       nameTokens,
       zonaIdTokens,
-      locationIdTokens,
+      // FIX: Pass districtTokens
+      districtTokens,
     });
     onClose();
   };
@@ -66,7 +71,7 @@ export default function AdvancedOptionsDialog({
       <DialogContent dividers sx={{ pt: 2 }}>
         {/* Zone Name Filter */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>Filter by Zone Name (Case-insensitive includes with)</Typography>
+          <Typography variant="subtitle1" gutterBottom>Filter by Zona Name (Case-insensitive includes with)</Typography>
           <TextField
             fullWidth
             size="small"
@@ -92,7 +97,7 @@ export default function AdvancedOptionsDialog({
               <Chip
                 key={index}
                 label={token}
-                onDelete={() => handleDeleteToken('name', token, setNameTokens)}
+                onDelete={() => handleDeleteToken(token, setNameTokens)}
                 color="primary"
                 variant="outlined"
                 size="small"
@@ -101,72 +106,36 @@ export default function AdvancedOptionsDialog({
           </Stack>
         </Box>
 
-        {/* Zona ID Filter */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>Filter by Zona ID (Numerical Prefix Match)</Typography>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Add Zona ID token"
-            value={zonaIdInput}
-            onChange={(e) => setZonaIdInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleAddToken('zonaId', zonaIdInput, setZonaIdInput, setZonaIdTokens);
-                e.preventDefault();
-              }
-            }}
-            InputProps={{
-              endAdornment: (
-                <Button onClick={() => handleAddToken('zonaId', zonaIdInput, setZonaIdInput, setZonaIdTokens)} size="small">
-                  <AddIcon />
-                </Button>
-              ),
-            }}
-          />
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
-            {zonaIdTokens.map((token, index) => (
-              <Chip
-                key={index}
-                label={token}
-                onDelete={() => handleDeleteToken('zonaId', token, setZonaIdTokens)}
-                color="secondary"
-                variant="outlined"
-                size="small"
-              />
-            ))}
-          </Stack>
-        </Box>
 
-        {/* Location ID Filter */}
+        {/* District Filter */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>Filter by Location ID (Numerical Prefix Match)</Typography>
+          <Typography variant="subtitle1" gutterBottom>Filter by District (Case-insensitive includes with)</Typography>
           <TextField
             fullWidth
             size="small"
-            placeholder="Add Location ID token"
-            value={locationIdInput}
-            onChange={(e) => setLocationIdInput(e.target.value)}
+            placeholder="Add District token"
+            value={districtInput}
+            onChange={(e) => setDistrictInput(e.target.value)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
-                handleAddToken('locationId', locationIdInput, setLocationIdInput, setLocationIdTokens);
+                handleAddToken('district', districtInput, setDistrictInput, setDistrictTokens);
                 e.preventDefault();
               }
             }}
             InputProps={{
               endAdornment: (
-                <Button onClick={() => handleAddToken('locationId', locationIdInput, setLocationIdInput, setLocationIdTokens)} size="small">
+                <Button onClick={() => handleAddToken('district', districtInput, setDistrictInput, setDistrictTokens)} size="small">
                   <AddIcon />
                 </Button>
               ),
             }}
           />
           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
-            {locationIdTokens.map((token, index) => (
+            {districtTokens.map((token, index) => (
               <Chip
                 key={index}
                 label={token}
-                onDelete={() => handleDeleteToken('locationId', token, setLocationIdTokens)}
+                onDelete={() => handleDeleteToken(token, setDistrictTokens)}
                 color="info"
                 variant="outlined"
                 size="small"

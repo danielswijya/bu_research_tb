@@ -22,6 +22,19 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 function descendingComparator(a, b, orderBy) {
+  // Handle date comparisons properly for 'selected_date'
+  if (orderBy === 'selected_date') {
+    const dateA = new Date(a[orderBy]);
+    const dateB = new Date(b[orderBy]);
+    // Handle invalid dates by placing them at the end (or beginning, depending on desired sort)
+    if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+    if (isNaN(dateA.getTime())) return 1; // Invalid date A comes after valid date B
+    if (isNaN(dateB.getTime())) return -1; // Valid date A comes before invalid date B
+    if (dateB < dateA) return -1;
+    if (dateB > dateA) return 1;
+    return 0;
+  }
+  // Default comparison for other types
   if (b[orderBy] < a[orderBy]) return -1;
   if (b[orderBy] > a[orderBy]) return 1;
   return 0;
@@ -36,17 +49,21 @@ function getComparator(order, orderBy) {
 const headCells = [
   { id: 'status', label: '', disableSort: true },
   { id: 'select', label: '', disableSort: true },
-  { id: 'Screening_Location_ID', label: 'Screening ID' },
+  { id: 'location_name', label: 'Location Name' },
+  { id: 'Zona_name', label: 'Zona' },
+  { id: 'District', label: 'District' },
+  { id: 'selected_method_type', label: 'Method Type' },
   { id: 'screened_count', label: 'Screened' },
   { id: 'positive_count', label: 'Positive' },
-  { id: 'created_at', label: 'Date Created' },
+  { id: 'selected_date', label: 'Visit Date' }, // This is the column that now exists in DB
   { id: 'save', label: 'Save', disableSort: true },
   { id: 'delete', label: 'Delete', disableSort: true },
 ];
 
 export default function TicketsTable({ tickets = [], onSave, onDelete, onChange }) {
   const [order, setOrder] = useState('desc');
-  const [orderBy, setOrderBy] = useState('created_at');
+  // FIX: Change orderBy to 'selected_date' to match the new column in Supabase
+  const [orderBy, setOrderBy] = useState('selected_date');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selected, setSelected] = useState([]);
@@ -93,7 +110,7 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
 
   const handleSave = async (ticket) => {
     const updated = { ...ticket, saved: true };
-    await onSave(updated); // This must update Supabase with saved: true
+    await onSave(updated);
   };
 
   const filteredTickets = tickets.filter((t) => {
@@ -199,7 +216,10 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
                     />
                   </TableCell>
 
-                  <TableCell>{ticket.Screening_Location_ID}</TableCell>
+                  <TableCell>{ticket.location_name || 'N/A'}</TableCell>
+                  <TableCell>{ticket.Zona_name || 'N/A'}</TableCell>
+                  <TableCell>{ticket.District || 'N/A'}</TableCell>
+                  <TableCell>{ticket.selected_method_type || 'N/A'}</TableCell>
 
                   <TableCell>
                     <input
@@ -238,7 +258,8 @@ export default function TicketsTable({ tickets = [], onSave, onDelete, onChange 
                   </TableCell>
 
                   <TableCell>
-                    {ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}
+                    {/* Display selected_date as it's the new timestamp column */}
+                    {ticket.selected_date ? new Date(ticket.selected_date).toLocaleString() : 'N/A'}
                   </TableCell>
 
                   <TableCell>

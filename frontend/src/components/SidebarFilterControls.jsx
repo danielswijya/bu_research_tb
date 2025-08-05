@@ -3,116 +3,149 @@ import {
   AccordionSummary,
   AccordionDetails,
   Switch,
-  TextField,
   Typography,
   FormControlLabel,
+  FormGroup,
+  Checkbox,
   Box,
   Stack,
   Chip,
   Slider,
-  Button, 
+  Button,
   Badge,
 } from '@mui/material';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import React, { useState } from 'react'; // Import useState
-import AdvancedOptionsDialog from './AdvancedOptionsDialog'; // Import the new dialog
+import React, { useState } from 'react';
+import AdvancedOptionsDialog from './AdvancedOptionsDialog';
 
-export default function SidebarFilterControls({ filters, setFilters, availableZonaIds }) {
+export default function SidebarFilterControls({ filters, setFilters, availableSiteTypes }) {
   const [openAdvancedFilter, setOpenAdvancedFilter] = useState(false);
 
-  const handleApplyAdvancedFilters = ({ nameTokens, zonaIdTokens, locationIdTokens }) => {
+  const handleApplyAdvancedFilters = ({ nameTokens, districtTokens }) => {
     setFilters((prev) => ({
       ...prev,
       nameTokens,
-      zonaIdTokens,
-      locationIdTokens,
+      districtTokens,
+      zonaIdTokens: [], // FIX: Clear out zonaIdTokens on advanced filter apply
     }));
   };
 
-//   Filter Calculation for Badge
-  const activeFiltercount = 
-    (filters.nameTokens && filters.nameTokens.length > 0 ? 1 : 0) +
-    (filters.zonaIdTokens && filters.zonaIdTokens.length > 0 ? 1 : 0) +
-    (filters.locationIdTokens && filters.locationIdTokens.length > 0 ? 1 : 0);
+  const handleMethodTypeChange = (event) => {
+    const { name, checked } = event.target;
+    setFilters((prev) => {
+      if (checked) {
+        return {
+          ...prev,
+          selectedTypes: [...prev.selectedTypes, name],
+        };
+      } else {
+        return {
+          ...prev,
+          selectedTypes: prev.selectedTypes.filter((type) => type !== name),
+        };
+      }
+    });
+  };
+
+  // FIX: activeFiltercount now only counts name and district tokens
+  const activeFiltercount =
+    (filters.nameTokens?.length || 0) +
+    (filters.districtTokens?.length || 0);
 
   return (
     <Accordion
-    sx={{
-    backgroundColor: '#F6F9FC', 
-    color: '#333',
-    border: '4px solid #9854CB', 
-    borderRadius: 3, 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)', 
-    mb: 2,
-    mt: 1,
-    overflow: 'hidden',
-    transition: 'box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out', 
-    '&:hover': { // Hover effect
-      boxShadow: '0 8px 20px rgba(0,0,0,0.12)', // Slightly larger, softer shadow on hover
-      transform: 'translateY(-2px)', // Very slight lift
-    },
-    }}
-    defaultExpanded
->
+      sx={{
+        backgroundColor: '#F6F9FC',
+        color: '#333',
+        border: '4px solid #9854CB',
+        borderRadius: 3,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        mb: 2,
+        mt: 1,
+        overflow: 'hidden',
+        transition: 'box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out',
+        '&:hover': {
+          boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+          transform: 'translateY(-2px)',
+        },
+      }}
+      defaultExpanded
+    >
       <AccordionSummary>
         <Typography variant="subtitle1" fontWeight={600}>
-          <FilterAltIcon/> Filter & Search Here
+          <FilterAltIcon /> Filter & Search Here
         </Typography>
       </AccordionSummary>
 
       <AccordionDetails>
+        {/* Screening Method Filter */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" gutterBottom>
+            Filter by Screening Method
+          </Typography>
+          <FormGroup sx={{ flexDirection: 'row', gap: 1 }}>
+            {availableSiteTypes.map((type) => (
+              <FormControlLabel
+                key={type}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={filters.selectedTypes.includes(type)}
+                    onChange={handleMethodTypeChange}
+                    name={type}
+                  />
+                }
+                label={type}
+              />
+            ))}
+          </FormGroup>
+        </Box>
+        
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          {filters.selectedTypes?.map((type) => (
+          {/* Chip for selected Screening Methods */}
+          {filters.selectedTypes.map((token, index) => (
             <Chip
-              key={type}
-              label={type}
-              clickable
-              color="info"
-              size="small"
-              onClick={() => console.log('Clicked:', type)}
-              onDelete={() => {
+              key={`type-${index}`}
+              label={`Method: ${token}`}
+              onDelete={() =>
                 setFilters((prev) => ({
                   ...prev,
-                  selectedTypes: prev.selectedTypes.filter((t) => t !== type),
-                }));
-              }}
-            />
-          ))}
-          {/* Display Advanced Filter Chips */}
-          {filters.nameTokens?.map((token, index) => (
-            <Chip
-              key={`name-${index}`}
-              label={`Name: ${token}`}
-              onDelete={() => setFilters((prev) => ({
-                ...prev,
-                nameTokens: prev.nameTokens.filter((t) => t !== token),
-              }))}
+                  selectedTypes: prev.selectedTypes.filter((t) => t !== token),
+                }))
+              }
               color="primary"
               variant="outlined"
               size="small"
             />
           ))}
-          {filters.zonaIdTokens?.map((token, index) => (
+
+          {filters.nameTokens?.map((token, index) => (
             <Chip
-              key={`zona-${index}`}
-              label={`Zona ID: ${token}`}
-              onDelete={() => setFilters((prev) => ({
-                ...prev,
-                zonaIdTokens: prev.zonaIdTokens.filter((t) => t !== token),
-              }))}
-              color="secondary"
+              key={`name-${index}`}
+              label={`Name: ${token}`}
+              onDelete={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  nameTokens: prev.nameTokens.filter((t) => t !== token),
+                }))
+              }
+              color="primary"
               variant="outlined"
               size="small"
             />
           ))}
-          {filters.locationIdTokens?.map((token, index) => (
+          
+
+          {filters.districtTokens?.map((token, index) => (
             <Chip
-              key={`location-${index}`}
-              label={`Location ID: ${token}`}
-              onDelete={() => setFilters((prev) => ({
-                ...prev,
-                locationIdTokens: prev.locationIdTokens.filter((t) => t !== token),
-              }))}
+              key={`district-${index}`}
+              label={`District: ${token}`}
+              onDelete={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  districtTokens: prev.districtTokens.filter((t) => t !== token),
+                }))
+              }
               color="info"
               variant="outlined"
               size="small"
@@ -120,7 +153,6 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
           ))}
         </Stack>
 
-        {/* Ranking Toggles */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
           <FormControlLabel
             control={
@@ -146,7 +178,6 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
             label="Rank by Most Diagnosed"
           />
 
-          {/* Yield Ratio Switch */}
           <FormControlLabel
             control={
               <Switch
@@ -160,44 +191,47 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
           />
         </Box>
 
-        {/* Advanced Filter Button */}
-        <Badge color='primary' badgeContent= {activeFiltercount} invisible= {activeFiltercount === 0}>
-            <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<FilterAltIcon />}
-                onClick={() => setOpenAdvancedFilter(true)}
-                sx={{ mb: 2 }}
-                >
-                Advanced Filters
-            </Button>
+        <Badge
+          color="primary"
+          badgeContent={activeFiltercount}
+          invisible={activeFiltercount === 0}
+        >
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<FilterAltIcon />}
+            onClick={() => setOpenAdvancedFilter(true)}
+            sx={{ mb: 2 }}
+          >
+            Advanced Filters
+          </Button>
         </Badge>
 
-        {/* Yield Ratio Range Filter */}
         <Box sx={{ my: 2 }}>
-        <Typography variant="body2" gutterBottom>
+          <Typography variant="body2" gutterBottom>
             Filter by Yield Ratio
-        </Typography>
-        <Slider
-        value={filters.yieldRange}
-        onChange={(e, newVal) => setFilters((prev) => ({ ...prev, yieldRange: newVal }))}
-        valueLabelDisplay="auto"
-        min={0}
-        max={1}
-        step={0.01}
-        valueLabelFormat={(val) => `${val}%`}
-        marks={[
-            { value: 0, label: '0%' },
-            { value: 0.5, label: '0.5%' },
-            { value: 1, label: '1%' },
-            { value: 1.5, label: '1.5%'},
-            {value: 2, label:'2%'},
-            {value: 2.5, label:'2.5%'},
-            { value: 3, label: '3%'},
-        ]}
-        sx={{ mt: 1.5 }}
-        />
-
+          </Typography>
+          <Slider
+            value={filters.yieldRange}
+            onChange={(e, newVal) =>
+              setFilters((prev) => ({ ...prev, yieldRange: newVal }))
+            }
+            valueLabelDisplay="auto"
+            min={0}
+            max={3}
+            step={0.01}
+            valueLabelFormat={(val) => `${val.toFixed(2)}%`}
+            marks={[
+              { value: 0, label: '0%' },
+              { value: 0.5, label: '0.5%' },
+              { value: 1, label: '1%' },
+              { value: 1.5, label: '1.5%' },
+              { value: 2, label: '2%' },
+              { value: 2.5, label: '2.5%' },
+              { value: 3, label: '3%' },
+            ]}
+            sx={{ mt: 1.5 }}
+          />
         </Box>
       </AccordionDetails>
 
@@ -206,7 +240,7 @@ export default function SidebarFilterControls({ filters, setFilters, availableZo
         onClose={() => setOpenAdvancedFilter(false)}
         initialNameTokens={filters.nameTokens}
         initialZonaIdTokens={filters.zonaIdTokens}
-        initialLocationIdTokens={filters.locationIdTokens}
+        initialDistrictTokens={filters.districtTokens}
         onApplyFilters={handleApplyAdvancedFilters}
       />
     </Accordion>

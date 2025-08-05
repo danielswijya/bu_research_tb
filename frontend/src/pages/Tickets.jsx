@@ -20,13 +20,15 @@ export default function TicketsPage() {
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
-      .order('created_at', { ascending: false });
+      // FIX: Change order by column from 'created_at' to 'selected_date'
+      .order('selected_date', { ascending: false });
 
     if (error) {
       console.error('❌ Error fetching tickets:', error);
     } else {
       setTickets(data);
       setEditableFields(data);
+      console.log("✅ Tickets fetched successfully:", data); // Add for debugging
     }
   };
 
@@ -43,6 +45,11 @@ export default function TicketsPage() {
         screened_count: ticket.screened_count,
         positive_count: ticket.positive_count,
         saved: true,
+        // Ensure other fields that might be updated are also included if they are editable
+        // selected_method_type: ticket.selected_method_type, // Example if you make this editable
+        // selected_date: ticket.selected_date, // Example if you make this editable
+        // Zona_name: ticket.Zona_name, // Example if you make this editable
+        // District: ticket.District, // Example if you make this editable
       })
       .eq('id', ticket.id);
 
@@ -51,12 +58,12 @@ export default function TicketsPage() {
     } else {
       console.log('✅ Updated ticket:', ticket);
       setEditableFields((prev) =>
-      prev.map((t) =>
-        t.id === ticket.id
-          ? { ...t, saved: true }
-          : t
-      )
-    );
+        prev.map((t) =>
+          t.id === ticket.id
+            ? { ...t, saved: true }
+            : t
+        )
+      );
       setShowAlert(true);
       setTimeout(() => setShowAlert(false), 5000);
     }
@@ -69,38 +76,41 @@ export default function TicketsPage() {
     } else {
       console.log(`🗑️ Deleted ticket with ID ${id}`);
       setEditableFields((prev) => prev.filter((t) => t.id !== id));
+      // No need to fetchTickets here if the local state update is sufficient
     }
   };
 
   const handleSaveAll = async () => {
-  const updatedTickets = [];
+    const updatePromises = editableFields.map(async (ticket) => {
+      const { error } = await supabase
+        .from('tickets')
+        .update({
+          screened_count: ticket.screened_count,
+          positive_count: ticket.positive_count,
+          saved: true,
+        })
+        .eq('id', ticket.id);
 
-  for (let ticket of editableFields) {
-    const { error } = await supabase
-      .from('tickets')
-      .update({
-        screened_count: ticket.screened_count,
-        positive_count: ticket.positive_count,
-        saved: true, // ✅ persist saved state
+      if (error) {
+        console.error('❌ Batch update failed for ticket:', ticket.id, error);
+        return null; // Return null for failed updates
+      }
+      return { ...ticket, saved: true }; // Return updated ticket for successful ones
+    });
+
+    const results = await Promise.all(updatePromises);
+    const successfulUpdates = results.filter(Boolean); // Filter out nulls (failed updates)
+
+    setEditableFields((prev) =>
+      prev.map((t) => {
+        const updated = successfulUpdates.find((u) => u.id === t.id);
+        return updated ? updated : t;
       })
-      .eq('id', ticket.id);
+    );
 
-    if (!error) {
-      updatedTickets.push({ ...ticket, saved: true });
-    }
-  }
-
-  // ✅ update local state to reflect saved = true
-  setEditableFields((prev) =>
-    prev.map((t) => {
-      const updated = updatedTickets.find((u) => u.id === t.id);
-      return updated ? updated : t;
-    })
-  );
-
-  setShowAlert(true);
-  setTimeout(() => setShowAlert(false), 5000);
-};
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 5000);
+  };
 
 
   const handleDeleteAll = async () => {
@@ -111,6 +121,7 @@ export default function TicketsPage() {
       console.error('❌ Error deleting all tickets:', error);
     } else {
       console.log('✅ All tickets deleted');
+      // After deleting all, immediately fetch updated list (should be empty)
       await fetchTickets();
       setOpenDeleteDialog(false);
     }
