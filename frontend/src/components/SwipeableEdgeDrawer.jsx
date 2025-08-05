@@ -305,23 +305,36 @@ export default function SidebarSelector({
           Showing {flattenedEntries.length} results
         </Typography>
       
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ textAlign: 'center', width: '100%', my: 2, ml:3}}
-        >
-          Select locations below & Press "Confirm Selection"
-        </Typography>
 
-        <Button
-          sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10, mb: 2 }}
-          fullWidth
-          variant="contained"
-          disabled={selectedScreeningIds.length === 0}
-          onClick={handleInitiateConfirmation}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            bgcolor: 'background.paper',
+            mx: -2,
+            px: 2,
+            py: 1.5,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          }}
         >
-          Confirm Selection
-        </Button>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ textAlign: 'center', width: '100%', mb: 1, display: 'block' }}
+          >
+            Select locations below & Press "Confirm Selection"
+          </Typography>
+          <Button
+            sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
+            fullWidth
+            variant="contained"
+            disabled={selectedScreeningIds.length === 0}
+            onClick={handleInitiateConfirmation}
+          >
+            Confirm Selection
+          </Button>
+        </Box>
 
         {flattenedEntries.map((entry) => {
           const isSelected = selectedScreeningIds.includes(entry.markerKey);
