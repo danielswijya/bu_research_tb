@@ -18,7 +18,7 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import React, { useState } from 'react';
 import AdvancedOptionsDialog from './AdvancedOptionsDialog';
 
-export default function SidebarFilterControls({ filters, setFilters, availableSiteTypes }) {
+export default function SidebarFilterControls({ filters, setFilters, availableSiteTypes, availableDistricts }) {
   const [openAdvancedFilter, setOpenAdvancedFilter] = useState(false);
 
   const handleApplyAdvancedFilters = ({ nameTokens, districtTokens }) => {
@@ -47,7 +47,6 @@ export default function SidebarFilterControls({ filters, setFilters, availableSi
     });
   };
 
-  // FIX: activeFiltercount now only counts name and district tokens
   const activeFiltercount =
     (filters.nameTokens?.length || 0) +
     (filters.districtTokens?.length || 0);
@@ -72,9 +71,10 @@ export default function SidebarFilterControls({ filters, setFilters, availableSi
       defaultExpanded
     >
       <AccordionSummary>
-        <Typography variant="subtitle1" fontWeight={600}>
-          <FilterAltIcon /> Filter & Search Here
+        <Typography variant="subtitle1" fontWeight={700}>
+          Filter & Search Here 
         </Typography>
+        <FilterAltIcon/>
       </AccordionSummary>
 
       <AccordionDetails>
@@ -134,8 +134,8 @@ export default function SidebarFilterControls({ filters, setFilters, availableSi
               size="small"
             />
           ))}
-          
 
+          {/* Removed the Zona ID filter chips entirely */}
           {filters.districtTokens?.map((token, index) => (
             <Chip
               key={`district-${index}`}
@@ -239,9 +239,9 @@ export default function SidebarFilterControls({ filters, setFilters, availableSi
         open={openAdvancedFilter}
         onClose={() => setOpenAdvancedFilter(false)}
         initialNameTokens={filters.nameTokens}
-        initialZonaIdTokens={filters.zonaIdTokens}
         initialDistrictTokens={filters.districtTokens}
         onApplyFilters={handleApplyAdvancedFilters}
+        availableDistricts={availableDistricts}
       />
     </Accordion>
   );

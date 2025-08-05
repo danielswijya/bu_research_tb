@@ -4,7 +4,7 @@ import { Box, Typography, Checkbox, Button } from '@mui/material';
 import SidebarFilterControls from './SidebarFilterControls';
 import MethodBadges from './ScreeningMethodBadge';
 import EntryConfirmationDialog from './EntryConfirmationDialog';
-import {createTheme, ThemeProvider} from '@mui/material/styles';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 
 export default function SidebarSelector({
   onConfirm,
@@ -20,8 +20,8 @@ export default function SidebarSelector({
   const [zoneNames, setZoneNames] = useState(new Map());
   const [pulseId, setpulseId] = useState(null);
   const customTheme = createTheme({
-    typography:{
-      allVariants:{
+    typography: {
+      allVariants: {
         fontFamily: '"Segoe UI"'
       }
     }
@@ -40,6 +40,7 @@ export default function SidebarSelector({
     nameTokens: [],
     zonaIdTokens: [],
     locationIdTokens: [],
+    districtTokens: [], // Make sure this is in the state
   });
 
   useEffect(() => {
@@ -131,7 +132,6 @@ export default function SidebarSelector({
 
       const inYieldRange = yieldRatio >= minYield && yieldRatio <= maxYield;
 
-      // FIX: Apply the same robust normalization logic for site.methods here
       const siteMethodsArray = site.methods instanceof Set
         ? Array.from(site.methods)
         : Array.isArray(site.methods)
@@ -162,10 +162,11 @@ export default function SidebarSelector({
         filters.zonaIdTokens.length === 0 ||
         filters.zonaIdTokens.some((token) => zonaIdStr.startsWith(token));
 
-      const locationIdMatch =
-        filters.locationIdTokens.length === 0 ||
-        filters.locationIdTokens.some((token) =>
-          locationName.includes(token.toLowerCase())
+      // FIX: New district filter logic
+      const districtMatch =
+        filters.districtTokens.length === 0 ||
+        filters.districtTokens.some((token) =>
+          (site.District || '').toLowerCase().includes(token.toLowerCase())
         );
 
       return (
@@ -173,7 +174,7 @@ export default function SidebarSelector({
         siteTypeMatch &&
         nameMatch &&
         zonaIdMatch &&
-        locationIdMatch
+        districtMatch
       );
     });
 
@@ -259,10 +260,14 @@ export default function SidebarSelector({
       }
       return [];
     });
-    
+
     const uniqueMethods = new Set(allMethods.filter(method => typeof method === 'string' && method.toLowerCase() !== 'na'));
-    
     return Array.from(uniqueMethods);
+  }, [siteData]);
+
+  // NEW: Memoized list of all unique districts
+  const availableDistricts = useMemo(() => {
+    return [...new Set(siteData.map(s => s.District))].filter(Boolean);
   }, [siteData]);
 
 
@@ -290,45 +295,33 @@ export default function SidebarSelector({
           <SidebarFilterControls
             filters={filters}
             setFilters={setFilters}
-            availableZonaIds={[...new Set(siteData.map((s) => s.Zona_ID))]}
             availableSiteTypes={availableSiteTypes}
+            // Pass the new availableDistricts prop to the filter controls
+            availableDistricts={availableDistricts}
           />
         </Box>
         
-        <Typography variant="subtitle1" color="primary.main" sx={{ mt: 0, ml: 1, mb: 1, textAlign: 'right' }}>
+        <Typography variant="subtitle1" color="primary.main" sx={{ mt: 0, ml: 1. ,mb:1, textAlign:'right' }}>
           Showing {flattenedEntries.length} results
         </Typography>
       
-        <Box
-          sx={{
-            // FIX: Use position: sticky on this wrapper box
-            position: 'sticky',
-            top: 0, // Stick to the top of the scrollable container
-            zIndex: 100, // Ensure it's on top of scrolling cards
-            bgcolor: 'background.paper', // Match background color to prevent content from showing through
-            py: 1, // Add some vertical padding
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)', // Optional: subtle shadow for visual separation
-            mx: -2, // Compensate for parent's padding
-            px: 2,
-          }}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ textAlign: 'center', width: '100%', my: 2, ml:3}}
         >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ textAlign: 'center', width: '100%', mb: 1, display: 'block' }}
-          >
-            Select locations below & Press "Confirm Selection"
-          </Typography>
-          <Button
-            sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
-            fullWidth
-            variant="contained"
-            disabled={selectedScreeningIds.length === 0}
-            onClick={handleInitiateConfirmation}
-          >
-            Confirm Selection
-          </Button>
-        </Box>
+          Select locations below & Press "Confirm Selection"
+        </Typography>
+
+        <Button
+          sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10, mb: 2 }}
+          fullWidth
+          variant="contained"
+          disabled={selectedScreeningIds.length === 0}
+          onClick={handleInitiateConfirmation}
+        >
+          Confirm Selection
+        </Button>
 
         {flattenedEntries.map((entry) => {
           const isSelected = selectedScreeningIds.includes(entry.markerKey);

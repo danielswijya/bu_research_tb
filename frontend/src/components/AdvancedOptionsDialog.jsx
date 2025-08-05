@@ -10,36 +10,44 @@ import {
   Stack,
   Box,
   Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  OutlinedInput,
+  MenuItem,
+  Checkbox,
+  ListItemText,
 } from '@mui/material';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import AddIcon from '@mui/icons-material/Add';
+
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+  PaperProps: {
+    style: {
+      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+      width: 250,
+    },
+  },
+};
 
 export default function AdvancedOptionsDialog({
   open,
   onClose,
   initialNameTokens,
-  initialZonaIdTokens,
-  // FIX: Change to initialDistrictTokens to match parent component
   initialDistrictTokens,
-  // FIX: Change to onApplyFilters to pass the new districtTokens
   onApplyFilters,
+  availableDistricts,
 }) {
   const [nameInput, setNameInput] = useState('');
-  const [zonaIdInput, setZonaIdInput] = useState('');
-  // FIX: New state for District input
-  const [districtInput, setDistrictInput] = useState('');
-
   const [nameTokens, setNameTokens] = useState(initialNameTokens || []);
-  const [zonaIdTokens, setZonaIdTokens] = useState(initialZonaIdTokens || []);
-  // FIX: New state for District tokens
   const [districtTokens, setDistrictTokens] = useState(initialDistrictTokens || []);
 
   useEffect(() => {
     setNameTokens(initialNameTokens || []);
-    setZonaIdTokens(initialZonaIdTokens || []);
-    // FIX: Sync state with initialDistrictTokens prop
     setDistrictTokens(initialDistrictTokens || []);
-  }, [initialNameTokens, initialZonaIdTokens, initialDistrictTokens]);
+  }, [initialNameTokens, initialDistrictTokens]);
 
   const handleAddToken = (tokenType, input, setInput, setTokens) => {
     if (input.trim() !== '') {
@@ -52,11 +60,16 @@ export default function AdvancedOptionsDialog({
     setTokens((prev) => prev.filter((token) => token !== tokenToDelete));
   };
 
+  const handleDistrictChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    setDistrictTokens(typeof value === 'string' ? value.split(',') : value);
+  };
+
   const handleApply = () => {
     onApplyFilters({
       nameTokens,
-      zonaIdTokens,
-      // FIX: Pass districtTokens
       districtTokens,
     });
     onClose();
@@ -106,42 +119,29 @@ export default function AdvancedOptionsDialog({
           </Stack>
         </Box>
 
-
-        {/* District Filter */}
+        {/* District Filter - Replaced with a multi-select dropdown */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>Filter by District (Case-insensitive includes with)</Typography>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Add District token"
-            value={districtInput}
-            onChange={(e) => setDistrictInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleAddToken('district', districtInput, setDistrictInput, setDistrictTokens);
-                e.preventDefault();
-              }
-            }}
-            InputProps={{
-              endAdornment: (
-                <Button onClick={() => handleAddToken('district', districtInput, setDistrictInput, setDistrictTokens)} size="small">
-                  <AddIcon />
-                </Button>
-              ),
-            }}
-          />
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
-            {districtTokens.map((token, index) => (
-              <Chip
-                key={index}
-                label={token}
-                onDelete={() => handleDeleteToken(token, setDistrictTokens)}
-                color="info"
-                variant="outlined"
-                size="small"
-              />
-            ))}
-          </Stack>
+          <Typography variant="subtitle1" gutterBottom>Filter by District</Typography>
+          <FormControl fullWidth size="small">
+            <InputLabel id="district-multi-checkbox-label">District</InputLabel>
+            <Select
+              labelId="district-multi-checkbox-label"
+              id="district-multi-checkbox"
+              multiple
+              value={districtTokens}
+              onChange={handleDistrictChange}
+              input={<OutlinedInput label="District" />}
+              renderValue={(selected) => selected.join(', ')}
+              MenuProps={MenuProps}
+            >
+              {availableDistricts.map((name) => (
+                <MenuItem key={name} value={name}>
+                  <Checkbox checked={districtTokens.includes(name)} />
+                  <ListItemText primary={name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
