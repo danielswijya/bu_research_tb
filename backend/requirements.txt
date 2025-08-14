@@ -1,3 +1,0 @@
-requests
-numpy
-python-dotenv  # if using .env for keys

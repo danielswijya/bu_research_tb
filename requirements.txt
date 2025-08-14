@@ -1,0 +1,20 @@
+# python-dotenv — load secrets from .env (e.g., Supabase URL/keys)
+python-dotenv
+# requests — make HTTP calls (e.g., Supabase REST)
+requests
+# psycopg2-binary — connect directly to Postgres for quick tests/queries
+psycopg2-binary
+# geopandas — read/write GIS data (Shapefile/GeoJSON) for ETL
+geopandas
+# shapely — geometry operations used by GeoPandas
+shapely
+# fiona — vector GIS I/O engine (Shapefile/GeoJSON) used by GeoPandas
+fiona
+# pyproj — coordinate/projection transformations
+pyproj
+# pandas — tabular data wrangling (CSV parsing, joins, cleaning)
+pandas
+# numpy — fast numeric arrays & math, underpins pandas/geopandas
+numpy
+#leaflet - for the map
+leaflet
