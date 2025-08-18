@@ -301,7 +301,6 @@ export default function MapPage() {
 
 * **Env vars location**: Vite reads from `frontend/.env`. If you place them at the repo root, configure `envDir` or they won’t be found.
 
-* **`yieldRange`**\*\* default\*\*: In `SwipeableEdgeDrawer.jsx`, default is `[0,100]` but the slider max is 3. 
 * **Date parsing**: `Date` is a text column. Prefer `YYYY-MM-DD` strings and when comparing dates, use `new Date(DateString)` defensively.
 * **Leaflet markers not showing**: ensure `import 'leaflet/dist/leaflet.css'` is included once, and the map container has a fixed height.
 * **Supabase client path**: Many components import via `../../lib/supabaseClient`. Ensure the file path exists exactly (or adjust imports consistently).

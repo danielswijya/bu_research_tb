@@ -54,7 +54,7 @@ Tickets table lists those rows, you edit counts and save, then export CSV.
     1.  Set env in `frontend` directory
         ```ini
         VITE_SUPABASE_URL = YOUR_URL
-        VITE_SUPABASE_KEY = YOUR_KEY
+        VITE_SUPABASE_KEY = YOUR_ANON_KEY
         ```
     2. Install & Run
         ```bash
