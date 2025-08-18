@@ -16,7 +16,7 @@ npm run dev
 
 ```ini
 VITE_SUPABASE_URL=YOUR_URL
-VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+VITE_SUPABASE_KEY=YOUR_ANON_KEY
 ```
 
 **Supabase client:** `src/lib/supabaseClient.js`

@@ -1,4 +1,3 @@
-// ✅ MapPage updated to match SidebarSelector: combines entries by lat, lon, location_name and uses unified markerKey
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Alert, Collapse } from '@mui/material';
@@ -9,6 +8,34 @@ import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import MapLegend from '../components/MapLegend';
 import L from 'leaflet';
 import React from 'react';
+
+const normalizeSiteType = (t = '') => {
+  const s = String(t).trim().toLowerCase();
+  if (!s || s === 'na' || s === 'n/a') return '';
+  if (s.includes('community')) return 'Community (General)';
+  if (s.includes('health')) return 'Health Facility';
+  return t.trim();
+};
+
+const SITE_TYPE_COLOR = {
+  'Community (General)': 'green',
+  'Health Facility': 'blue',
+};
+
+const iconCache = new Map();
+const getMarkerIcon = (color) => {
+  if (!iconCache.has(color)) {
+    iconCache.set(color, new L.Icon({
+      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+    }));
+  }
+  return iconCache.get(color);
+};
 
 function AutoZoom({ sites }) {
   const map = useMap();
@@ -76,13 +103,17 @@ export default function MapPage() {
         const total_screened = site.n_screened || 0;
         const total_diagnosed = site.n_diagnosed || 0;
 
+        const rawSiteType = site.site_type ?? site.Site_Type ?? '';
+        const siteTypeCanonical = normalizeSiteType(rawSiteType);
+
         if (!siteMap.has(key)) {
           siteMap.set(key, {
             ...site,
             markerKey: key,
             total_screened,
             total_diagnosed,
-            methods: new Set([site.Screening_performed_by])
+            methods: new Set([site.Screening_performed_by]),
+            siteTypeCanonical,
           });
         } else {
           const prev = siteMap.get(key);
@@ -90,7 +121,9 @@ export default function MapPage() {
             ...prev,
             total_screened: prev.total_screened + total_screened,
             total_diagnosed: prev.total_diagnosed + total_diagnosed,
-            methods: new Set([...prev.methods, site.Screening_performed_by])
+            methods: new Set([...prev.methods, site.Screening_performed_by]),
+            // Fixed: Explicitly retain or update the siteTypeCanonical property
+            siteTypeCanonical: prev.siteTypeCanonical || siteTypeCanonical,
           });
         }
       }
@@ -158,29 +191,13 @@ export default function MapPage() {
           const districtMatches = !selectedDistrict || site.District === selectedDistrict;
           if (!inRange || !districtMatches) return null;
 
-          let iconColor;
-          const screeningType = Array.from(site.methods).join(', ').toLowerCase();
-
+          let iconColor = SITE_TYPE_COLOR[site.siteTypeCanonical]
           if (isSelected) {
             iconColor = 'orange';
           } else if (isHighlighted) {
             iconColor = 'yellow';
-          } else if (screeningType.includes('backpack')) {
-            iconColor = 'green';
-          } else if (screeningType.includes('mobile')) {
-            iconColor = 'blue';
-          } else {
-            iconColor = 'red';
           }
-
-          const icon = new L.Icon({
-            iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${iconColor}.png`,
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41],
-          });
+          const icon = getMarkerIcon(iconColor);
 
           return (
             <MemoizedMarker
