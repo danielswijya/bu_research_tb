@@ -157,7 +157,7 @@ const siteData = (data ?? []).map(r => ({
   * Method checkboxes → updates `selectedTypes`.
   * Chips for active filters (methods, names, districts).
   * Toggles for ranking (screened, diagnosed, yield).
-  * **Yield slider:** `min=0`, `max=3`, `step=0.01` (displays as `%`).
+  * **Yield slider:** 
   * **Advanced Filters** button opens `AdvancedOptionsDialog`.
 
 ### 3) `AdvancedOptionsDialog.jsx`

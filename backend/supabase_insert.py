@@ -21,9 +21,9 @@ def insert_row(data):
     response = requests.post(url, headers=headers, json=data)
 
     if response.status_code == 201:
-        print("✅ Inserted:", response.json())
+        print("Inserted:", response.json())
     else:
-        print("❌ Failed:", response.status_code, response.text)
+        print(" Failed:", response.status_code, response.text)
         
         
 
@@ -39,9 +39,9 @@ def insert_zones(data_list):
     response = requests.post(url, headers=headers, json=data_list)
 
     if response.status_code in [200, 201]:
-        print("✅ Bulk insert successful:", response.json())
+        print(" Bulk insert successful:", response.json())
     else:
-        print("❌ Bulk insert failed:", response.status_code, response.text)
+        print("Bulk insert failed:", response.status_code, response.text)
 
 
 def parse_geojson(file_path):
