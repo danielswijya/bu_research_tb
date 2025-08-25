@@ -20,7 +20,7 @@ export default function App() {
           </Typography>
           <Tabs value={tabIndex} onChange={handleChange} textColor="primary" indicatorColor="primary">
             <Tab label="Map" />
-            <Tab label="Confirmed Locations" />
+            <Tab label="Dashboard" />
           </Tabs>
         </Toolbar>
       </AppBar>

@@ -18,3 +18,9 @@ pandas
 numpy
 #leaflet - for the map
 leaflet
+#chart.js - for the charts
+chart.js
+#react-chartjs-2 - for the charts in react
+react-chartjs-2
+# Material-UI for React components
+@mui/material
