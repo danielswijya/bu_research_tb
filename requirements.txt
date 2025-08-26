@@ -24,3 +24,5 @@ chart.js
 react-chartjs-2
 # Material-UI for React components
 @mui/material
+# Material-UI charts
+@mui/x-charts
