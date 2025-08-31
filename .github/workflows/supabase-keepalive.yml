@@ -10,11 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Supabase REST API
+      - name: Ping Supabase Auth health
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -s -X GET "$SUPABASE_URL/rest/v1/zones?select=id&limit=1" \
+          set -e
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY"
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/auth/v1/health")
+          echo "HTTP $CODE"
+          test "$CODE" = "200"
+  
