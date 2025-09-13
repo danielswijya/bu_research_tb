@@ -1,16 +1,15 @@
-name: Keep Supabase Alive Weekly
+name: Keep Supabase Alive (Daily)
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # At 09:00 UTC everyday
-  workflow_dispatch:     # Allows manual triggering
+    - cron: '17 8 * * *'   # run once daily at 08:17 UTC
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Ping Supabase Auth health
+      - name: Ping Supabase REST (read from table)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -19,7 +18,6 @@ jobs:
           CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/auth/v1/health")
+            "$SUPABASE_URL/rest/v1/filtered_site_data?select=id&limit=1")
           echo "HTTP $CODE"
           test "$CODE" = "200"
-  
