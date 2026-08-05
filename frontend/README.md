@@ -66,7 +66,7 @@ frontend/
 
 ## Data Flow (Frontend)
 
-1. **MapPage** fetches from `filtered_site_data` and **normalizes** records to the shape the sidebar expects.
+1. **MapPage** fetches from `filtered_site_data` and `site_recommendations` (EXP3 ranks), then **normalizes** records for the sidebar. Default list order is bandit `rank` / `priority` when recommendations exist; yield/screened/diagnosed toggles still override.
 2. **SwipeableEdgeDrawer** receives `siteData`, renders a list with filters, and handles selection.
 3. On **Confirm Selection**, **EntryConfirmationDialog** looks up historical rows and returns a clean payload.
 4. **SwipeableEdgeDrawer** inserts confirmed rows into `tickets`.
@@ -129,7 +129,8 @@ const siteData = (data ?? []).map(r => ({
   * Loads `public/data/residential_zones.geojson` to map `Zona_ID → Zone_Nam_1`.
   * Deduplicates multiple records per location, keeping the **latest** by `Date`.
   * Applies filters: method types, district tokens, name tokens, **yield range**.
-  * Renders cards with method badges, counts, yield %, and date.
+  * Default sort: EXP3 recommended rank (falls back to yield if `site_recommendations` is empty).
+  * Renders cards with method badges, bandit rank, counts, yield %, and date.
   * Opens **EntryConfirmationDialog** and, on confirm, inserts tickets.
 * **Filters state shape:**
 

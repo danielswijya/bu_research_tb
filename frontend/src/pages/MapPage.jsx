@@ -1,11 +1,11 @@
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-leaflet';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Alert, Collapse } from '@mui/material';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
-
 import SidebarSelector from '../components/SwipeableEdgeDrawer';
 import MapLegend from '../components/MapLegend';
+import { siteJoinKey } from '../utils/siteJoinKey';
 import L from 'leaflet';
 import React from 'react';
 
@@ -25,84 +25,117 @@ const SITE_TYPE_COLOR = {
 const iconCache = new Map();
 const getMarkerIcon = (color) => {
   if (!iconCache.has(color)) {
-    iconCache.set(color, new L.Icon({
-      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    }));
+    iconCache.set(
+      color,
+      new L.Icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+        shadowUrl:
+          'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+      })
+    );
   }
   return iconCache.get(color);
 };
 
-function AutoZoom({ sites }) {
+function InitialFitBounds({ sites, enabled }) {
   const map = useMap();
+  const didFit = useRef(false);
 
   useEffect(() => {
-    if (!sites.length) return;
-    const bounds = sites.map((s) => [s.lat, s.lon]);
+    if (!enabled || didFit.current || !sites.length) return;
+    const bounds = sites
+      .filter((s) => s.lat != null && s.lon != null)
+      .map((s) => [parseFloat(s.lat), parseFloat(s.lon)]);
+    if (!bounds.length) return;
     map.fitBounds(bounds, { padding: [50, 50] });
-  }, [sites]);
+    didFit.current = true;
+  }, [sites, enabled, map]);
 
   return null;
 }
 
-const MemoizedMarker = React.memo(({ position, icon, popupContent, markerKey, eventHandlers, refCallback }) => (
-  <Marker
-    key={markerKey}
-    position={position}
-    icon={icon}
-    ref={refCallback}
-    eventHandlers={eventHandlers}
-  >
-    <Popup>{popupContent}</Popup>
-  </Marker>
-));
+function FlyToController({ target }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!target?.lat || !target?.lon) return;
+    const lat = parseFloat(target.lat);
+    const lon = parseFloat(target.lon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+    map.flyTo([lat, lon], 16, { duration: 0.45, easeLinearity: 0.25 });
+  }, [target, map]);
+
+  return null;
+}
+
+const MemoizedMarker = React.memo(
+  ({ position, icon, popupContent, markerKey, eventHandlers, refCallback }) => (
+    <Marker
+      key={markerKey}
+      position={position}
+      icon={icon}
+      ref={refCallback}
+      eventHandlers={eventHandlers}
+    >
+      <Popup>{popupContent}</Popup>
+    </Marker>
+  )
+);
 
 export default function MapPage() {
   const [zoneData, setZoneData] = useState(null);
   const [showAlert, setShowAlert] = useState(false);
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [neighborhoodStats, setNeighborhoodStats] = useState([]);
   const [siteData, setSiteData] = useState([]);
+  const [recommendationsByKey, setRecommendationsByKey] = useState(new Map());
   const [filteredSites, setFilteredSites] = useState([]);
   const [selectedScreeningIds, setSelectedScreeningIds] = useState([]);
   const [highlightedMarkerKey, setHighlightedMarkerKey] = useState(null);
-  const [filters, setFilters] = useState({
-    selectedTypes: [],
-    selectedZonaIds: [],
-    rankByScreened: false,
-    rankByDiagnosed: false,
-    rankByYield: false,
-    yieldRange: [0, 100],
-    searchQuery: '',
-  });
+  const [flyTarget, setFlyTarget] = useState(null);
 
   const markerRefs = useRef({});
 
   useEffect(() => {
     fetch('/data/residential_zones.geojson')
-      .then(res => res.json())
+      .then((res) => res.json())
       .then(setZoneData);
 
     const fetchData = async () => {
-      const { data: neighborhoods } = await supabase
-        .from('neighborhood_stats')
-        .select('Zona_ID');
+      const { data: site_data } = await supabase.from('filtered_site_data').select('*');
 
-      const { data: site_data } = await supabase
-        .from('filtered_site_data')
-        .select('*');
+      const { data: recommendations, error: recError } = await supabase
+        .from('site_recommendations')
+        .select(
+          'arm_id,location_name,Zona_name,District,lat,lon,priority,rank,updated_at'
+        );
+
+      if (recError) {
+        console.warn('site_recommendations unavailable:', recError.message);
+      }
+
+      const recMap = new Map();
+      for (const rec of recommendations || []) {
+        const joinKey = siteJoinKey(rec.location_name, rec.Zona_name, rec.District);
+        recMap.set(joinKey, {
+          arm_id: rec.arm_id,
+          priority: rec.priority,
+          rank: rec.rank,
+          updated_at: rec.updated_at,
+        });
+      }
+      setRecommendationsByKey(recMap);
 
       const siteMap = new Map();
 
-      for (const site of site_data) {
+      for (const site of site_data || []) {
         const key = `${site.lat}_${site.lon}_${site.location_name}`;
         const total_screened = site.n_screened || 0;
         const total_diagnosed = site.n_diagnosed || 0;
-
+        const joinKey = siteJoinKey(site.location_name, site.Zona_name, site.District);
+        const bandit = recMap.get(joinKey);
         const rawSiteType = site.site_type ?? site.Site_Type ?? '';
         const siteTypeCanonical = normalizeSiteType(rawSiteType);
 
@@ -110,10 +143,13 @@ export default function MapPage() {
           siteMap.set(key, {
             ...site,
             markerKey: key,
+            joinKey,
             total_screened,
             total_diagnosed,
             methods: new Set([site.Screening_performed_by]),
             siteTypeCanonical,
+            banditRank: bandit?.rank ?? null,
+            banditPriority: bandit?.priority ?? null,
           });
         } else {
           const prev = siteMap.get(key);
@@ -122,13 +158,13 @@ export default function MapPage() {
             total_screened: prev.total_screened + total_screened,
             total_diagnosed: prev.total_diagnosed + total_diagnosed,
             methods: new Set([...prev.methods, site.Screening_performed_by]),
-            // Fixed: Explicitly retain or update the siteTypeCanonical property
             siteTypeCanonical: prev.siteTypeCanonical || siteTypeCanonical,
+            banditRank: prev.banditRank ?? bandit?.rank ?? null,
+            banditPriority: prev.banditPriority ?? bandit?.priority ?? null,
           });
         }
       }
 
-      setNeighborhoodStats(neighborhoods || []);
       setSiteData(Array.from(siteMap.values()));
     };
 
@@ -146,13 +182,25 @@ export default function MapPage() {
     setTimeout(() => setShowAlert(false), 3000);
   };
 
-  const displayedSites = useMemo(() => (
-    filteredSites.length > 0 ? filteredSites : siteData
-  ), [filteredSites, siteData]);
+  const focusSite = useCallback((site) => {
+    if (!site) return;
+    setHighlightedMarkerKey(site.markerKey);
+    setFlyTarget({
+      lat: site.lat,
+      lon: site.lon,
+      key: site.markerKey,
+      t: Date.now(),
+    });
+  }, []);
+
+  const displayedSites = useMemo(
+    () => (filteredSites.length > 0 ? filteredSites : siteData),
+    [filteredSites, siteData]
+  );
 
   return (
-    <div style={{ height: '91vh', width: '100%', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, pointerEvents: "none" }}>
+    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
+      <div className="pointer-events-none fixed top-20 left-1/2 z-[2000] -translate-x-1/2">
         <Collapse in={showAlert} timeout="auto" unmountOnExit>
           <Alert severity="success">Confirmed screening zones!</Alert>
         </Collapse>
@@ -161,7 +209,7 @@ export default function MapPage() {
       <MapContainer
         center={[-12.05, -77.05]}
         zoom={11}
-        style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '100%', height: '100%', zIndex: 0 }}
+        className="absolute inset-0 z-0 h-full w-full"
       >
         <MapLegend />
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -173,31 +221,22 @@ export default function MapPage() {
               const name = feature.properties?.zone_name || 'Unnamed';
               layer.bindPopup(`<strong>${name}</strong>`);
             }}
-            style={{ color: '#3388ff', weight: 2, fillOpacity: 0.2 }}
+            style={{ color: '#0f766e', weight: 1.5, fillOpacity: 0.12 }}
           />
         )}
 
         {displayedSites.map((site) => {
           const position = [parseFloat(site.lat), parseFloat(site.lon)];
+          if (Number.isNaN(position[0]) || Number.isNaN(position[1])) return null;
+
           const markerKey = site.markerKey;
           const isHighlighted = highlightedMarkerKey === markerKey;
           const isSelected = selectedScreeningIds.includes(markerKey);
-          const yieldRatio = site.total_screened > 0
-            ? (site.total_diagnosed / site.total_screened) * 100
-            : 0;
 
-          const [minYield, maxYield] = filters.yieldRange;
-          const inRange = yieldRatio >= minYield && yieldRatio <= maxYield;
-          const districtMatches = !selectedDistrict || site.District === selectedDistrict;
-          if (!inRange || !districtMatches) return null;
-
-          let iconColor = SITE_TYPE_COLOR[site.siteTypeCanonical]
-          if (isSelected) {
-            iconColor = 'orange';
-          } else if (isHighlighted) {
-            iconColor = 'yellow';
-          }
-          const icon = getMarkerIcon(iconColor);
+          let iconColor = SITE_TYPE_COLOR[site.siteTypeCanonical];
+          if (isSelected) iconColor = 'orange';
+          else if (isHighlighted) iconColor = 'yellow';
+          const icon = getMarkerIcon(iconColor || 'blue');
 
           return (
             <MemoizedMarker
@@ -205,7 +244,7 @@ export default function MapPage() {
               markerKey={markerKey}
               position={position}
               icon={icon}
-              popupContent={(
+              popupContent={
                 <>
                   <strong>Location:</strong> {site.location_name} <br />
                   <strong>District:</strong> {site.District} <br />
@@ -214,14 +253,16 @@ export default function MapPage() {
                   <strong>Latest Date:</strong> {site.Date} <br />
                   <strong>Total Screened:</strong> {site.total_screened} <br />
                   <strong>Total Diagnosed:</strong> {site.total_diagnosed}
+                  {site.banditRank != null && (
+                    <>
+                      <br />
+                      <strong>Recommended rank:</strong> #{site.banditRank}
+                    </>
+                  )}
                 </>
-              )}
+              }
               eventHandlers={{
-                click: () => {
-                  setHighlightedMarkerKey(prev =>
-                    prev === markerKey ? null : markerKey
-                  );
-                },
+                click: () => focusSite(site),
               }}
               refCallback={(ref) => {
                 if (ref) markerRefs.current[markerKey] = ref;
@@ -230,21 +271,22 @@ export default function MapPage() {
           );
         })}
 
-        <AutoZoom sites={displayedSites} />
+        <InitialFitBounds sites={siteData} enabled={siteData.length > 0} />
+        <FlyToController target={flyTarget} />
       </MapContainer>
 
-      <div style={{ position: 'relative', zIndex: 10 }}>
+      <div className="relative z-10">
         <SidebarSelector
-          filters={filters}
-          setFilters={setFilters}
           onConfirm={handleShowAlert}
           siteData={siteData}
+          recommendationsByKey={recommendationsByKey}
           onFilter={setFilteredSites}
           selectedScreeningIds={selectedScreeningIds}
           setSelectedScreeningIds={setSelectedScreeningIds}
           selectedMarkerKey={highlightedMarkerKey}
           setSelectedMarkerKey={setHighlightedMarkerKey}
           setHighlightedMarkerKey={setHighlightedMarkerKey}
+          onFocusSite={focusSite}
         />
       </div>
     </div>

@@ -54,11 +54,11 @@ export default function SidebarFilterControls({ filters, setFilters, availableSi
   return (
     <Accordion
       sx={{
-        backgroundColor: '#F6F9FC',
+        backgroundColor: '#f0fdfa',
         color: '#333',
-        border: '4px solid #9854CB',
+        border: '2px solid #0f766e',
         borderRadius: 3,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        boxShadow: '0 4px 12px rgba(15,23,42,0.06)',
         mb: 2,
         mt: 1,
         overflow: 'hidden',

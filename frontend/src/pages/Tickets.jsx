@@ -21,6 +21,9 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import TBDashboardStatCard from '../components/TBDashboardStatCard';
 import TBAnalyticsLineChart from '../components/TBAnalyticsLineChart';
 import BarOverviewCard from '../components/BarOverviewCard';
+import { BentoGrid } from '@/components/ui/bento-grid';
+import { TextGenerateEffect } from '@/components/ui/text-generate-effect';
+import { GlowingEffect } from '@/components/ui/glowing-effect';
 
 export default function TBTicketsDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -185,57 +188,44 @@ export default function TBTicketsDashboard() {
 
   return (
     <DashboardLayout>
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: 700,
-          mb: 2,
-          fontFamily: 'Inter, Roboto, Arial, sans-serif',
-          color: '#222',
-        }}
-      >
-        TB Dashboard
-      </Typography>
+      <div className="mb-6">
+        <TextGenerateEffect
+          words="TB Dashboard"
+          className="text-2xl sm:text-3xl"
+          duration={0.35}
+          filter={false}
+        />
+        <p className="mt-1 text-sm text-slate-500">
+          Review screening outcomes, yields, and field tickets.
+        </p>
+      </div>
 
-      {/* Top Number Cards */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <TBDashboardStatCard
-            title="Total Screenings"
-            count={totalScreenings} // all-time total
-            previousCount={prevScreenings} // previous date
-            currentDateCount={lastScreenings} // most recent date
-            subText={newScreeningsText}
-            color="primary"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TBDashboardStatCard
-            title="Total TB Positives"
-            count={totalPositives}
-            previousCount={prevPositives}
-            currentDateCount={lastPositives}
-            subText={newPositivesText}
-            color="primary"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TBDashboardStatCard
-            title="Total Locations"
-            count={totalLocations}
-            previousCount={prevLocations}
-            color="warning"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TBDashboardStatCard
-            title="Total Visits"
-            count={totalVisits}
-            previousCount={prevVisits}
-            color="warning"
-          />
-        </Grid>
-      </Grid>
+      <BentoGrid className="mb-6 md:auto-rows-auto">
+        <TBDashboardStatCard
+          title="Total Screenings"
+          count={totalScreenings}
+          previousCount={prevScreenings}
+          currentDateCount={lastScreenings}
+          subText={newScreeningsText}
+        />
+        <TBDashboardStatCard
+          title="Total TB Positives"
+          count={totalPositives}
+          previousCount={prevPositives}
+          currentDateCount={lastPositives}
+          subText={newPositivesText}
+        />
+        <TBDashboardStatCard
+          title="Total Locations"
+          count={totalLocations}
+          previousCount={prevLocations}
+        />
+        <TBDashboardStatCard
+          title="Total Visits"
+          count={totalVisits}
+          previousCount={prevVisits}
+        />
+      </BentoGrid>
 
       {/* Analytics Graph */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
@@ -253,53 +243,42 @@ export default function TBTicketsDashboard() {
         </Grid>
       </Grid>
 
-      {/* Recent Orders Table */}
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 2,
-          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-          p: 0,
-          mb: 4,
-          bgcolor: '#fff',
-          border: '1px solid #e5e7eb',
-          maxWidth: 1200,
-          mx: 'auto',
-        }}
-      >
-        <Box sx={{ p: 2, pb: 1, borderBottom: '1px solid #e5e7eb' }}>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 600,
-              fontFamily: 'Inter, Roboto, Arial, sans-serif',
-              color: '#222',
-              fontSize: 16,
-            }}
-          >
-            Recent TB Tickets
-          </Typography>
-        </Box>
-        <Box sx={{ px: 2, pt: 2, pb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button variant="contained" color="success" size="small" onClick={handleSaveAll} startIcon={<SaveIcon />}>
-                Save All
-              </Button>
-              <Button variant="outlined" color="error" size="small" onClick={() => setOpenDeleteDialog(true)} startIcon={<DeleteIcon />}>
-                Delete All
-              </Button>
-            </Box>
-            <ExportCSVButton />
+      <GlowingEffect className="mb-8">
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 2,
+            p: 0,
+            bgcolor: '#fff',
+            border: '1px solid #e2e8f0',
+          }}
+        >
+          <Box sx={{ p: 2, pb: 1, borderBottom: '1px solid #e2e8f0' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: 16 }}>
+              Recent TB Tickets
+            </Typography>
           </Box>
-          <TicketsTable
-            tickets={editableFields}
-            onSave={handleSave}
-            onDelete={handleDelete}
-            onChange={handleChange}
-          />
-        </Box>
-      </Paper>
+          <Box sx={{ px: 2, pt: 2, pb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button variant="contained" color="primary" size="small" onClick={handleSaveAll} startIcon={<SaveIcon />}>
+                  Save All
+                </Button>
+                <Button variant="outlined" color="error" size="small" onClick={() => setOpenDeleteDialog(true)} startIcon={<DeleteIcon />}>
+                  Delete All
+                </Button>
+              </Box>
+              <ExportCSVButton />
+            </Box>
+            <TicketsTable
+              tickets={editableFields}
+              onSave={handleSave}
+              onDelete={handleDelete}
+              onChange={handleChange}
+            />
+          </Box>
+        </Paper>
+      </GlowingEffect>
       {showAlert && (
         <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}>
           <Collapse in={showAlert}>

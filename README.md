@@ -12,16 +12,26 @@ Export tickets to CSV
 
 ```txt
 Supabase (database)
-  ├─ filtered_site_data  ← read-only; powers map + sidebar
-  └─ tickets             ← write; stores selections & edits
+  ├─ filtered_site_data     ← read-only; powers map + sidebar
+  ├─ tickets                ← write; selections & visit outcomes (EXP3 reward)
+  ├─ site_recommendations   ← EXP3 priority/rank (written by weekly job)
+  └─ bandit_state           ← persisted EXP3 weights
 
 frontend (React)
-  ├─ Map page (loads filtered_site_data, renders Leaflet map)
-  └─ Sidebar + Tickets (selection → confirmation → tickets)
+  ├─ Map page (loads filtered_site_data + site_recommendations)
+  └─ Sidebar ranks by bandit priority by default (yield toggles still available)
 
-backend (Python, optional)
-  ├─ ETL helpers (e.g., Shapefile → GeoJSON) #This is for Shapefiles to GeoJSON for the Map
+backend (Python)
+  ├─ bandit/run_weekly.py   ← EXP3 job (bootstrap + reinforce + publish)
+  ├─ ETL helpers (Shapefile → GeoJSON)
   └─ Legacy tests / loaders
+```
+
+EXP3 job (optional weekly cron): see [backend/README.md](backend/README.md). Run `bandit/schema.sql` in Supabase once, then:
+
+```bash
+python -m backend.bandit.run_weekly --bootstrap-history
+python -m backend.bandit.run_weekly
 ```
 ## .env API KEYs, Supabase Data Model, Data Structure & Modifications for Database
 To consult, kindly look into the Supabase database to look what tables & fields there are. 

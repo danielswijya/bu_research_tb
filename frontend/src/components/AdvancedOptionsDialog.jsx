@@ -77,7 +77,7 @@ export default function AdvancedOptionsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { borderRadius: 3, boxShadow: 3 } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, backgroundColor: '#E6F0FA', borderBottom: '1px solid #9854CB', color: '#333' }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, backgroundColor: '#f0fdfa', borderBottom: '1px solid #0f766e', color: '#333' }}>
         <FilterAltIcon />
         <Typography variant="h6" fontWeight={600}>Advanced Filters</Typography>
       </DialogTitle>
@@ -146,7 +146,7 @@ export default function AdvancedOptionsDialog({
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose} variant="outlined" color="secondary">Cancel</Button>
-        <Button onClick={handleApply} variant="contained" sx={{ backgroundColor: '#9854CB', color: '#fff' }}>Apply Filters</Button>
+        <Button onClick={handleApply} variant="contained" color="primary">Apply Filters</Button>
       </DialogActions>
     </Dialog>
   );

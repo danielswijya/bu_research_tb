@@ -1,34 +1,41 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { supabase } from '../../lib/supabaseClient';
-import { Box, Typography, Checkbox, Button } from '@mui/material';
+import { Chip, Typography } from '@mui/material';
 import SidebarFilterControls from './SidebarFilterControls';
-import MethodBadges from './ScreeningMethodBadge';
 import EntryConfirmationDialog from './EntryConfirmationDialog';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
+import LocationResultCard from './LocationResultCard';
+import { siteJoinKey } from '../utils/siteJoinKey';
+import { PlaceholdersAndVanishInput } from '@/components/ui/placeholders-and-vanish-input';
+import { MovingBorderButton } from '@/components/ui/moving-border';
+import { cn } from '@/lib/utils';
+
+const SEARCH_PLACEHOLDERS = [
+  'Search locations…',
+  'Filter by zona…',
+  'Filter by district…',
+];
 
 export default function SidebarSelector({
   onConfirm,
   siteData,
+  recommendationsByKey,
   onFilter,
   selectedScreeningIds,
   setSelectedScreeningIds,
   selectedMarkerKey,
   setSelectedMarkerKey,
   setHighlightedMarkerKey,
+  onFocusSite,
 }) {
   const [flattenedEntries, setFlattenedEntries] = useState([]);
   const [zoneNames, setZoneNames] = useState(new Map());
   const [pulseId, setpulseId] = useState(null);
-  const customTheme = createTheme({
-    typography: {
-      allVariants: {
-        fontFamily: '"Segoe UI"'
-      }
-    }
-  });
-
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeDistrict, setActiveDistrict] = useState('');
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [entriesToConfirm, setEntriesToConfirm] = useState([]);
+  const listParentRef = useRef(null);
 
   const [filters, setFilters] = useState({
     selectedTypes: [],
@@ -40,28 +47,28 @@ export default function SidebarSelector({
     nameTokens: [],
     zonaIdTokens: [],
     locationIdTokens: [],
-    districtTokens: [], // Make sure this is in the state
+    districtTokens: [],
   });
 
   useEffect(() => {
-    fetchZoneNames();
+    fetch('/data/residential_zones.geojson')
+      .then((res) => res.json())
+      .then((geojson) => {
+        const map = new Map(
+          geojson.features.map((f) => [
+            Math.floor(f.properties.Zona_ID),
+            f.properties.Zone_Nam_1,
+          ])
+        );
+        setZoneNames(map);
+      })
+      .catch((err) => console.error('Error loading geojson:', err));
   }, []);
 
-  async function fetchZoneNames() {
-    try {
-      const response = await fetch('/data/residential_zones.geojson');
-      const geojson = await response.json();
-      const map = new Map(
-        geojson.features.map((f) => [
-          Math.floor(f.properties.Zona_ID),
-          f.properties.Zone_Nam_1,
-        ])
-      );
-      setZoneNames(map);
-    } catch (err) {
-      console.error('❌ Error loading geojson:', err);
-    }
-  }
+  const hasBanditRanks = useMemo(
+    () => (recommendationsByKey?.size ?? 0) > 0,
+    [recommendationsByKey]
+  );
 
   const latestSiteData = useMemo(() => {
     const uniqueLocations = new Map();
@@ -70,11 +77,12 @@ export default function SidebarSelector({
       const methodsArray = Array.isArray(entry.methods)
         ? entry.methods
         : typeof entry.methods === 'string'
-        ? entry.methods.split(',').map(m => m.trim())
-        : [];
+          ? entry.methods.split(',').map((m) => m.trim())
+          : entry.methods instanceof Set
+            ? Array.from(entry.methods)
+            : [];
 
-      const hasNAMethod = methodsArray.some(method => method.toLowerCase() === 'na');
-      if (hasNAMethod) {
+      if (methodsArray.some((method) => String(method).toLowerCase() === 'na')) {
         return;
       }
 
@@ -84,157 +92,197 @@ export default function SidebarSelector({
       } else {
         return;
       }
+      if (Number.isNaN(newDate.getTime())) return;
 
-      if (isNaN(newDate.getTime())) {
-        console.warn(`Invalid Date format for entry (after 'NA' check), skipping: '${entry.Date}'`, entry);
-        return;
-      }
+      const lat = entry.lat ?? 'unknown_lat';
+      const lon = entry.lon ?? 'unknown_lon';
+      const locationKey = `${(entry.location_name || 'Unknown').toLowerCase().trim()}|${(entry.Zona_name || 'Unknown').toLowerCase().trim()}|${lat}|${lon}`;
+      const joinKey =
+        entry.joinKey ||
+        siteJoinKey(entry.location_name, entry.Zona_name, entry.District);
+      const bandit = recommendationsByKey?.get(joinKey);
+      const enriched = {
+        ...entry,
+        joinKey,
+        banditRank: bandit?.rank ?? entry.banditRank ?? null,
+        banditPriority: bandit?.priority ?? entry.banditPriority ?? null,
+      };
 
-      const lat = entry.lat !== undefined && entry.lat !== null ? entry.lat : 'unknown_lat';
-      const lon = entry.lon !== undefined && entry.lon !== null ? entry.lon : 'unknown_lon';
-
-      const locationNameForId = (entry.location_name || 'Unknown').toLowerCase().trim();
-      const zonaNameForId = (entry.Zona_name || 'Unknown').toLowerCase().trim();
-
-      const locationKey = `${locationNameForId}|${zonaNameForId}|${lat}|${lon}`;
-      const existingEntry = uniqueLocations.get(locationKey);
-
-      if (!existingEntry) {
-        uniqueLocations.set(locationKey, entry);
-      } else {
-        const existingDate = new Date(existingEntry.Date);
-        if (isNaN(existingDate.getTime())) {
-          console.warn(`Invalid Date for existing entry, replacing if new date is valid: '${existingEntry.Date}'`, existingEntry);
-          if (!isNaN(newDate.getTime())) {
-            uniqueLocations.set(locationKey, entry);
-          }
-          return;
-        }
-
-        if (newDate > existingDate) {
-          uniqueLocations.set(locationKey, entry);
-        }
+      const existing = uniqueLocations.get(locationKey);
+      if (!existing || newDate > new Date(existing.Date)) {
+        uniqueLocations.set(locationKey, enriched);
       }
     });
+
     return Array.from(uniqueLocations.values());
+  }, [siteData, recommendationsByKey]);
+
+  const availableDistricts = useMemo(
+    () => [...new Set(siteData.map((s) => s.District).filter(Boolean))].sort(),
+    [siteData]
+  );
+
+  const availableSiteTypes = useMemo(() => {
+    const allMethods = siteData.flatMap((s) => {
+      if (s.methods instanceof Set) return Array.from(s.methods);
+      if (Array.isArray(s.methods)) return s.methods;
+      if (typeof s.methods === 'string') return s.methods.split(',').map((m) => m.trim());
+      return [];
+    });
+    return Array.from(
+      new Set(allMethods.filter((m) => typeof m === 'string' && m.toLowerCase() !== 'na'))
+    );
   }, [siteData]);
 
   useEffect(() => {
-    if (!latestSiteData.length || zoneNames.size === 0) return;
+    if (!latestSiteData.length) return;
 
     const [minYield, maxYield] = filters.yieldRange;
+    const q = searchQuery.trim().toLowerCase();
 
     const filtered = latestSiteData.filter((site) => {
       const yieldRatio =
         site.total_screened > 0
           ? (site.total_diagnosed / site.total_screened) * 100
           : 0;
-
       const inYieldRange = yieldRatio >= minYield && yieldRatio <= maxYield;
 
-      const siteMethodsArray = site.methods instanceof Set
-        ? Array.from(site.methods)
-        : Array.isArray(site.methods)
-        ? site.methods
-        : typeof site.methods === 'string'
-        ? site.methods.split(',').map(m => m.trim())
-        : [];
+      const siteMethodsArray =
+        site.methods instanceof Set
+          ? Array.from(site.methods)
+          : Array.isArray(site.methods)
+            ? site.methods
+            : typeof site.methods === 'string'
+              ? site.methods.split(',').map((m) => m.trim())
+              : [];
 
       const siteTypeMatch =
         filters.selectedTypes.length === 0 ||
         filters.selectedTypes.some((selectedType) =>
           siteMethodsArray.some((siteMethod) =>
-            siteMethod.toLowerCase().includes(selectedType.toLowerCase())
+            String(siteMethod).toLowerCase().includes(selectedType.toLowerCase())
           )
         );
 
       const zonaIdStr = site.Zona_ID?.toString() || '';
       const zoneName = (site.Zona_name || '').toLowerCase();
       const locationName = (site.location_name || '').toLowerCase();
+      const district = (site.District || '').toLowerCase();
 
       const nameMatch =
         filters.nameTokens.length === 0 ||
-        filters.nameTokens.some((token) =>
-          zoneName.includes(token.toLowerCase())
-        );
+        filters.nameTokens.some((token) => zoneName.includes(token.toLowerCase()));
 
       const zonaIdMatch =
         filters.zonaIdTokens.length === 0 ||
         filters.zonaIdTokens.some((token) => zonaIdStr.startsWith(token));
 
-      // FIX: New district filter logic
       const districtMatch =
         filters.districtTokens.length === 0 ||
         filters.districtTokens.some((token) =>
           (site.District || '').toLowerCase().includes(token.toLowerCase())
         );
 
+      const chipDistrictMatch =
+        !activeDistrict || site.District === activeDistrict;
+
+      const searchMatch =
+        !q ||
+        locationName.includes(q) ||
+        zoneName.includes(q) ||
+        district.includes(q) ||
+        zonaIdStr.includes(q);
+
       return (
         inYieldRange &&
         siteTypeMatch &&
         nameMatch &&
         zonaIdMatch &&
-        districtMatch
+        districtMatch &&
+        chipDistrictMatch &&
+        searchMatch
       );
     });
 
     const ranked = [...filtered];
-    if (filters.rankByScreened)
+    if (filters.rankByScreened) {
       ranked.sort((a, b) => b.total_screened - a.total_screened);
-    if (filters.rankByDiagnosed)
+    } else if (filters.rankByDiagnosed) {
       ranked.sort((a, b) => b.total_diagnosed - a.total_diagnosed);
-    if (filters.rankByYield)
+    } else if (filters.rankByYield) {
       ranked.sort(
         (a, b) =>
           (b.total_diagnosed / b.total_screened || 0) -
           (a.total_diagnosed / a.total_screened || 0)
       );
+    } else if (hasBanditRanks) {
+      ranked.sort((a, b) => {
+        const ar = a.banditRank == null ? Number.POSITIVE_INFINITY : a.banditRank;
+        const br = b.banditRank == null ? Number.POSITIVE_INFINITY : b.banditRank;
+        if (ar !== br) return ar - br;
+        return (b.banditPriority ?? -1) - (a.banditPriority ?? -1);
+      });
+    } else {
+      ranked.sort(
+        (a, b) =>
+          (b.total_diagnosed / b.total_screened || 0) -
+          (a.total_diagnosed / a.total_screened || 0)
+      );
+    }
 
     setFlattenedEntries(ranked);
     onFilter?.(ranked);
-  }, [latestSiteData, filters, zoneNames]);
+  }, [
+    latestSiteData,
+    filters,
+    zoneNames,
+    hasBanditRanks,
+    searchQuery,
+    activeDistrict,
+    onFilter,
+  ]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: flattenedEntries.length,
+    getScrollElement: () => listParentRef.current,
+    estimateSize: () => 168,
+    overscan: 8,
+  });
 
   useEffect(() => {
     if (!selectedMarkerKey || flattenedEntries.length === 0) return;
-
-    const timeout = setTimeout(() => {
-      const el = document.getElementById(`sidebar-entry-${selectedMarkerKey}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => {
-          setpulseId(selectedMarkerKey);
-          setTimeout(() => setpulseId(null), 4000);
-        }, 200);
-      }
-    }, 100);
-
-    return () => clearTimeout(timeout);
-  }, [selectedMarkerKey, flattenedEntries]);
+    const index = flattenedEntries.findIndex((e) => e.markerKey === selectedMarkerKey);
+    if (index < 0) return;
+    rowVirtualizer.scrollToIndex(index, { align: 'center', behavior: 'smooth' });
+    const t = setTimeout(() => {
+      setpulseId(selectedMarkerKey);
+      setTimeout(() => setpulseId(null), 1600);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [selectedMarkerKey, flattenedEntries, rowVirtualizer]);
 
   const handleInitiateConfirmation = () => {
-    const selectedFullEntries = selectedScreeningIds.map(markerKey =>
-      flattenedEntries.find(e => e.markerKey === markerKey)
-    ).filter(Boolean);
-
+    const selectedFullEntries = selectedScreeningIds
+      .map((markerKey) => flattenedEntries.find((e) => e.markerKey === markerKey))
+      .filter(Boolean);
     setEntriesToConfirm(selectedFullEntries);
     setOpenConfirmationDialog(true);
   };
 
   const handleConfirmSelectionsInDialog = async (confirmedSelections) => {
-    if (confirmedSelections.length > 0) {
-      const { data, error } = await supabase
-        .from('tickets')
-        .insert(confirmedSelections)
-        .select();
+    if (confirmedSelections.length === 0) return;
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert(confirmedSelections)
+      .select();
 
-      if (error) console.error('❌ Ticket insert error:', error);
-      else {
-        console.log('✅ Tickets inserted:', data);
-        setSelectedScreeningIds([]);
-        setEntriesToConfirm([]);
-        setOpenConfirmationDialog(false);
-        if (onConfirm) onConfirm();
-      }
+    if (error) console.error('Ticket insert error:', error);
+    else {
+      console.log('Tickets inserted:', data);
+      setSelectedScreeningIds([]);
+      setEntriesToConfirm([]);
+      setOpenConfirmationDialog(false);
+      onConfirm?.();
     }
   };
 
@@ -246,184 +294,126 @@ export default function SidebarSelector({
     );
   };
 
-  const availableSiteTypes = useMemo(() => {
-    const allMethods = siteData.flatMap((s) => {
-      const methods = s.methods;
-      if (methods instanceof Set) {
-        return Array.from(methods);
-      }
-      if (Array.isArray(methods)) {
-        return methods;
-      }
-      if (typeof methods === 'string') {
-        return methods.split(',').map(m => m.trim());
-      }
-      return [];
-    });
-
-    const uniqueMethods = new Set(allMethods.filter(method => typeof method === 'string' && method.toLowerCase() !== 'na'));
-    return Array.from(uniqueMethods);
-  }, [siteData]);
-
-  // NEW: Memoized list of all unique districts
-  const availableDistricts = useMemo(() => {
-    return [...new Set(siteData.map(s => s.District))].filter(Boolean);
-  }, [siteData]);
-
-
   return (
-    <ThemeProvider theme={customTheme}>
-      <Box
-        sx={{
-          position: 'fixed',
-          top: '75px',
-          right: 0,
-          width: 350,
-          height: '83vh',
-          bgcolor: 'background.paper',
-          borderLeft: '1px solid #ddd',
-          borderTopLeftRadius: 14,
-          borderBottomLeftRadius: 14,
-          overflowY: 'auto',
-          px: 2,
-          pb: 4,
-          zIndex: 1000,
-          boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
-        }}
-      >
-        <Box sx={{ pt: 1.75, pb: 1 }}>
-          <SidebarFilterControls
-            filters={filters}
-            setFilters={setFilters}
-            availableSiteTypes={availableSiteTypes}
-            // Pass the new availableDistricts prop to the filter controls
-            availableDistricts={availableDistricts}
-          />
-        </Box>
-        
-        <Typography variant="subtitle1" color="primary.main" sx={{ mt: 0, ml: 1. ,mb:1, textAlign:'right' }}>
-          Showing {flattenedEntries.length} results
-        </Typography>
-      
+    <aside
+      className={cn(
+        'fixed top-16 right-0 z-[1000] flex h-[calc(100vh-4rem)] w-[min(100vw,380px)] flex-col',
+        'rounded-tl-2xl border-l border-slate-200 bg-white/95 shadow-[-8px_0_24px_rgba(15,23,42,0.08)] backdrop-blur'
+      )}
+    >
+      <div className="space-y-3 border-b border-slate-100 px-3 pt-3 pb-2">
+        <PlaceholdersAndVanishInput
+          placeholders={SEARCH_PLACEHOLDERS}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onSubmit={(e) => e.preventDefault()}
+        />
 
-        <Box
-          sx={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 100,
-            bgcolor: 'background.paper',
-            mx: -2,
-            px: 2,
-            py: 1.5,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        <div className="no-visible-scrollbar flex gap-1.5 overflow-x-auto pb-1">
+          <Chip
+            size="small"
+            label="All districts"
+            color={!activeDistrict ? 'primary' : 'default'}
+            variant={!activeDistrict ? 'filled' : 'outlined'}
+            onClick={() => setActiveDistrict('')}
+          />
+          {availableDistricts.map((d) => (
+            <Chip
+              key={d}
+              size="small"
+              label={d}
+              color={activeDistrict === d ? 'primary' : 'default'}
+              variant={activeDistrict === d ? 'filled' : 'outlined'}
+              onClick={() => setActiveDistrict((prev) => (prev === d ? '' : d))}
+            />
+          ))}
+        </div>
+
+        <SidebarFilterControls
+          filters={filters}
+          setFilters={setFilters}
+          availableSiteTypes={availableSiteTypes}
+          availableDistricts={availableDistricts}
+        />
+
+        <div className="flex items-center justify-between px-0.5">
+          <Typography variant="caption" color="text.secondary">
+            {hasBanditRanks
+              ? 'Sorted by recommended rank'
+              : 'Sorted by yield (bandit ranks unavailable)'}
+          </Typography>
+          <Typography variant="subtitle2" className="!text-teal-800">
+            {flattenedEntries.length} sites
+          </Typography>
+        </div>
+      </div>
+
+      <div ref={listParentRef} className="min-h-0 flex-1 overflow-y-auto px-2 pt-2">
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
           }}
         >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ textAlign: 'center', width: '100%', mb: 1, display: 'block' }}
-          >
-            Select locations below & Press "Confirm Selection"
-          </Typography>
-          <Button
-            sx={{ backgroundColor: '#9854CB', color: '#fff', borderRadius: 10 }}
-            fullWidth
-            variant="contained"
-            disabled={selectedScreeningIds.length === 0}
-            onClick={handleInitiateConfirmation}
-          >
-            Confirm Selection
-          </Button>
-        </Box>
-
-        {flattenedEntries.map((entry) => {
-          const isSelected = selectedScreeningIds.includes(entry.markerKey);
-          const isHighlighted = selectedMarkerKey === entry.markerKey;
-          const yieldRatio = entry.total_screened > 0
-            ? (entry.total_diagnosed / entry.total_screened) * 100
-            : 0;
-
-          return (
-            <Box
-              key={entry.markerKey}
-              id={`sidebar-entry-${entry.markerKey}`}
-              sx={{
-                backgroundColor: '#F3F6FB',
-                borderLeft: isHighlighted
-                  ? '4px solid #9854CB'
-                  : '4px solid transparent',
-                border: isSelected
-                  ? '2px solid #9854CB'
-                  : '1px solid #ccc',
-                borderRadius: 2,
-                p: 2,
-                mb: 1,
-                cursor: 'pointer',
-                position: 'relative',
-                animation:
-                  pulseId === entry.markerKey
-                    ? 'pulse 1.4s ease-in-out 7'
-                    : 'none',
-              }}
-              onClick={() => {
-                toggleSelection(entry.markerKey);
-                setSelectedMarkerKey(entry.markerKey);
-                setHighlightedMarkerKey(entry.markerKey);
-              }}
-            >
-              <MethodBadges methods={entry.methods} />
-
-              <Box
-                sx={{
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const entry = flattenedEntries[virtualRow.index];
+            return (
+              <div
+                key={entry.markerKey}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                style={{
                   position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  zIndex: 10,
-                  pointerEvents: 'auto',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
                 }}
-                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                  pulseId === entry.markerKey && 'animate-pulse'
+                )}
               >
-                <Checkbox
-                  checked={isSelected}
-                  onChange={() => toggleSelection(entry.markerKey)}
+                <LocationResultCard
+                  entry={entry}
+                  isSelected={selectedScreeningIds.includes(entry.markerKey)}
+                  isHighlighted={selectedMarkerKey === entry.markerKey}
+                  onToggle={toggleSelection}
+                  onFocus={(site) => {
+                    setSelectedMarkerKey(site.markerKey);
+                    setHighlightedMarkerKey(site.markerKey);
+                    onFocusSite?.(site);
+                  }}
                 />
-              </Box>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-              <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'normal', mr: 3 }}>
-                Location Name: {entry.location_name || 'Unknown'}
-              </Typography>
-              <Typography variant="subtitle2">
-                Zona: {entry.Zona_name || 'N/A'}
-              </Typography>
-              <Typography variant="body2">District: {entry.District || 'N/A'}</Typography>
-              <Typography variant="body2">Total Screened: {entry.total_screened}</Typography>
-              <Typography variant="body2">Total Diagnosed: {entry.total_diagnosed}</Typography>
-              <Typography variant="body2">Yield: {yieldRatio.toFixed(2)}%</Typography>
-              <Typography variant="body2">
-                Performed by: {[...(entry.methods || [])].join(', ')}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Date: {entry.Date || 'N/A'}
-              </Typography>
-            </Box>
-          );
-        })}
+      <div className="border-t border-slate-100 bg-white px-3 py-3">
+        <p className="mb-2 text-center text-xs text-slate-500">
+          {selectedScreeningIds.length} selected — confirm to create tickets
+        </p>
+        <MovingBorderButton
+          disabled={selectedScreeningIds.length === 0}
+          onClick={handleInitiateConfirmation}
+          containerClassName={cn(
+            'h-11 w-full',
+            selectedScreeningIds.length === 0 && 'pointer-events-none opacity-50'
+          )}
+          className="bg-teal-800"
+        >
+          Confirm Selection
+        </MovingBorderButton>
+      </div>
 
-        <style>{`
-          @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(152, 84, 203, 0.5); transform: scale(1); }
-            50% { box-shadow: 0 0 0 10px rgba(152, 84, 203, 0.15); transform: scale(1.05); }
-            100% { box-shadow: 0 0 0 0 rgba(152, 84, 203, 0); transform: scale(1); }
-          }
-        `}</style>
-
-        <EntryConfirmationDialog
-          open={openConfirmationDialog}
-          onClose={() => setOpenConfirmationDialog(false)}
-          selectedEntries={entriesToConfirm}
-          onConfirmSelection={handleConfirmSelectionsInDialog}
-        />
-      </Box>
-    </ThemeProvider>
+      <EntryConfirmationDialog
+        open={openConfirmationDialog}
+        onClose={() => setOpenConfirmationDialog(false)}
+        selectedEntries={entriesToConfirm}
+        onConfirmSelection={handleConfirmSelectionsInDialog}
+      />
+    </aside>
   );
 }

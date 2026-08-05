@@ -208,7 +208,7 @@ export default function EntryConfirmationDialog({
                       flexDirection: { xs: 'column', sm: 'row'},
                       justifyContent: 'space-between',
                       alignItems: { xs: 'stretch', sm: 'center' },
-                      borderColor: selectedOption[entry.markerKey] ? '#9854CB' : 'initial',
+                      borderColor: selectedOption[entry.markerKey] ? '#0f766e' : 'initial',
                       borderWidth: selectedOption[entry.markerKey] ? '2px' : '1px',
                       borderRadius: 2,
                     }}
@@ -340,7 +340,7 @@ export default function EntryConfirmationDialog({
             onClick={handleProceedToFinalConfirmation}
             disabled={!allSelected || loading}
             variant="contained"
-            sx={{ backgroundColor: '#9854CB', '&:hover': { backgroundColor: '#7a3e9c' }, px: 2, py: 0.8 }}
+            sx={{ backgroundColor: '#0f766e', '&:hover': { backgroundColor: '#134e4a' }, px: 2, py: 0.8 }}
           >
             Proceed to Final Confirmation
           </Button>

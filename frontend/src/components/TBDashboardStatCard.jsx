@@ -1,28 +1,24 @@
 import PropTypes from 'prop-types';
 import Chip from '@mui/material/Chip';
-import Grid from '@mui/material/Grid';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import { BentoGridItem } from '@/components/ui/bento-grid';
+import { CardSpotlight } from '@/components/ui/card-spotlight';
+import { GlowingEffect } from '@/components/ui/glowing-effect';
 
 const iconSX = { fontSize: '1rem', color: 'inherit', marginLeft: 0, marginRight: 0 };
 
 export default function TBDashboardStatCard({
-  color = 'primary',
   title,
   count,
   previousCount,
   currentDateCount,
-  subText
+  subText,
 }) {
-  // Calculate percentage change for Screenings/Positives only
   let percentage = null;
   let isLoss = false;
   if (
-    (title === "Total Screenings" || title === "Total TB Positives") &&
+    (title === 'Total Screenings' || title === 'Total TB Positives') &&
     typeof currentDateCount === 'number' &&
     typeof previousCount === 'number' &&
     previousCount !== 0
@@ -31,69 +27,59 @@ export default function TBDashboardStatCard({
     isLoss = percentage < 0;
   }
 
-  // Custom subText for Locations/Visits
   let displaySubText = subText;
-  if (title === "Total Locations") {
+  if (title === 'Total Locations') {
     displaySubText = `You visited ${count} locations`;
   }
-  if (title === "Total Visits") {
+  if (title === 'Total Visits') {
     displaySubText = `You visited ${count} visits`;
   }
 
   return (
-    <Card variant="outlined" sx={{ p: 2.5, borderRadius: 5, minHeight: 120, paddingRight: 7 }}>
-      <Stack sx={{ gap: 0.5 }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 500 }}>
-          {title}
-        </Typography>
-        <Grid container alignItems="baseline" spacing={1}>
-          <Grid item>
-            <Typography variant="h5" color="inherit" sx={{ fontWeight: 700 }}>
-              {typeof count === 'number' ? count.toLocaleString() : count}
-            </Typography>
-            {(title === "Total Screenings" || title === "Total TB Positives") && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                All-time total
-              </Typography>
-            )}
-          </Grid>
-          {percentage !== null && (
-            <Grid item>
-              <Chip
-                variant="outlined"
-                color={isLoss ? 'warning' : color}
-                icon={isLoss ? <TrendingDownIcon sx={iconSX} /> : <TrendingUpIcon sx={iconSX} />}
-                label={`${Math.abs(percentage)}%`}
-                sx={{
-                  ml: 1,
-                  pl: 1,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  bgcolor: isLoss ? '#fbc02d22' : '#1976d222',
-                  color: isLoss ? '#fbc02d' : '#1976d2',
-                }}
-                size="small"
-              />
-            </Grid>
-          )}
-        </Grid>
-      </Stack>
-      {displaySubText && (
-        <Box sx={{ pt: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {displaySubText}
-          </Typography>
-        </Box>
-      )}
-    </Card>
+    <GlowingEffect>
+      <CardSpotlight className="h-full min-h-[8.5rem] border-slate-200 p-0">
+        <BentoGridItem
+          className="border-0 shadow-none hover:shadow-none dark:bg-transparent"
+          title={title}
+          description={displaySubText}
+          header={
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-900">
+                {typeof count === 'number' ? count.toLocaleString() : count}
+              </span>
+              {percentage !== null && (
+                <Chip
+                  variant="outlined"
+                  color={isLoss ? 'warning' : 'success'}
+                  icon={
+                    isLoss ? (
+                      <TrendingDownIcon sx={iconSX} />
+                    ) : (
+                      <TrendingUpIcon sx={iconSX} />
+                    )
+                  }
+                  label={`${Math.abs(percentage)}%`}
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    bgcolor: isLoss ? '#fef3c7' : '#ccfbf1',
+                    color: isLoss ? '#b45309' : '#0f766e',
+                    borderColor: 'transparent',
+                  }}
+                />
+              )}
+            </div>
+          }
+        />
+      </CardSpotlight>
+    </GlowingEffect>
   );
 }
 
 TBDashboardStatCard.propTypes = {
-  color: PropTypes.string,
   title: PropTypes.string,
   count: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   previousCount: PropTypes.number,
   currentDateCount: PropTypes.number,
-  subText: PropTypes.string
+  subText: PropTypes.string,
 };

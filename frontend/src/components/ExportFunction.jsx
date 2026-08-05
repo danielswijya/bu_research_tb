@@ -34,7 +34,7 @@ document.body.removeChild(link);
 };
 
 return (
-<Button variant="outlined" onClick={handleExportCSV} sx={{ mb: 0, backgroundColor: "#9854CB", color: "#FFFFFF" }}>
+<Button variant="contained" color="primary" onClick={handleExportCSV} sx={{ mb: 0 }}>
     <DownloadIcon />
 </Button>
 );

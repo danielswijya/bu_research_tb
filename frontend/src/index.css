@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-clinical-50: #f0fdfa;
+  --color-clinical-100: #ccfbf1;
+  --color-clinical-500: #0f766e;
+  --color-clinical-600: #0d9488;
+  --color-clinical-700: #134e4a;
+  --color-clinical-900: #042f2e;
+  --color-slate-surface: #f8fafc;
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #0f766e;
+  --primary-foreground: #f0fdfa;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --card: #ffffff;
+  --ring: #0d9488;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1);
+  }
+}
+
+.animate-spotlight {
+  animation: spotlight 2s var(--ease-out-strong) 0.1s both;
+}
+
+.pressable:active {
+  transform: scale(0.97);
+  transition: transform 140ms var(--ease-out-strong);
+}
+
+.no-visible-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-visible-scrollbar::-webkit-scrollbar {
+  display: none;
+}
